@@ -1,4 +1,4 @@
-var BASE_URL = "https://movie-booking-backend.onrender.com/api"
+var BASE_URL = "https://movie-booking-backend-k3uc.onrender.com/"
 
 function getAllMovies() {
   return fetch(BASE_URL + "/movies")
