@@ -1,16 +1,66 @@
-# React + Vite
+# PopcornPass 🍿
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full stack movie ticket booking web application built with the MERN stack.
 
-Currently, two official plugins are available:
+## Live Demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Frontend: https://movie-app-three-khaki-68.vercel.app
+- Backend: https://movie-booking-backend-k3uc.onrender.com
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Browse movies by genre, rating and status
+- Search movies by title, cast or director
+- View showtimes across multiple theaters
+- Interactive seat selection with live pricing
+- Secure payment with Card, UPI and Wallet
+- Booking confirmation with printable ticket
+- My Bookings page with cancel option
+- Admin panel with dashboard and analytics
+- Fully responsive on mobile and desktop
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- React.js
+- Vite
+- Tailwind CSS
+- React Context API
+- Chart.js
+- Deployed on Vercel
+
+## Pages
+
+- Home Page with hero slider
+- Movies Page with search and filters
+- Showtimes Page with date and theater filter
+- Seat Selection Page with interactive seat map
+- Payment Page with multiple payment methods
+- Booking Confirmation Page with ticket
+- My Bookings Page
+- Admin Panel with 5 tabs
+
+## Admin Login
+
+- Email: admin@cinebook.com
+- Password: any 6 characters
+
+## Getting Started
+
+### Install dependencies
+npm install
+
+### Run development server
+npm run dev
+
+### Build for production
+npm run build
+
+## Folder Structure
+
+src/
+├── components/
+├── pages/
+├── context/
+├── data/
+├── utils/
+└── main.jsx
