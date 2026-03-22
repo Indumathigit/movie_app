@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useApp } from "../context/AppContext"
 import { movies, theaters, showtimes } from "../data/mockData"
+import AnalyticsTab from "../components/AnalyticsTab"
 
 export default function AdminPage() {
   var { user, navigate } = useApp()
@@ -120,7 +121,7 @@ export default function AdminPage() {
         </div>
 
         {/* tabs */}
-        <div className="flex gap-2 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
+        <div className="flex flex-wrap gap-2 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "dashboard" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"}`}
@@ -144,6 +145,12 @@ export default function AdminPage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "theaters" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"}`}
           >
             🏛️ Theaters
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "analytics" ? "bg-red-600 text-white" : "text-gray-400 hover:text-white"}`}
+          >
+            📈 Analytics
           </button>
         </div>
 
@@ -177,7 +184,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* movies table */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-800">
                 <h2 className="text-white font-semibold">All Movies</h2>
@@ -232,8 +238,6 @@ export default function AdminPage() {
         {/* schedule tab */}
         {activeTab === "schedule" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {/* add showtime form */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-5">Add New Showtime</h2>
               <form onSubmit={handleAddShowtime} className="flex flex-col gap-4">
@@ -372,7 +376,6 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* showtimes list */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-5">
                 All Showtimes ({scheduleList.length})
@@ -505,6 +508,9 @@ export default function AdminPage() {
             })}
           </div>
         )}
+
+        {/* analytics tab */}
+        {activeTab === "analytics" && <AnalyticsTab />}
 
       </div>
     </div>
