@@ -10,11 +10,37 @@ export default function SeatSelectionPage() {
     toggleSeat,
     proceedToPayment,
     calculateTotal,
-    navigate
+    navigate,
+    bookings
   } = useApp()
 
   var [seats] = useState(function () {
-    return generateSeats(selectedShowtime ? selectedShowtime.id : 1)
+    var allSeats = generateSeats(selectedShowtime ? selectedShowtime.id : 1)
+
+    // get already booked seats for this showtime
+    var bookedSeatIds = []
+    for (var i = 0; i < bookings.length; i++) {
+      var booking = bookings[i]
+      if (
+        booking.showtime.id === selectedShowtime.id &&
+        booking.showtime.date === selectedShowtime.date
+      ) {
+        for (var j = 0; j < booking.seats.length; j++) {
+          bookedSeatIds.push(booking.seats[j].id)
+        }
+      }
+    }
+
+    // mark booked seats as reserved
+    for (var i = 0; i < allSeats.length; i++) {
+      for (var j = 0; j < bookedSeatIds.length; j++) {
+        if (allSeats[i].id === bookedSeatIds[j]) {
+          allSeats[i].status = "reserved"
+        }
+      }
+    }
+
+    return allSeats
   })
 
   function handleBack() {
