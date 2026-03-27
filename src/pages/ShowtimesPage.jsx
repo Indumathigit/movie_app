@@ -35,18 +35,43 @@ export default function ShowtimesPage() {
   }
 
   function getFilteredShowtimes() {
-    var result = []
-    for (var i = 0; i < showtimes.length; i++) {
-      var show = showtimes[i]
-      if (show.movieId !== selectedMovie.id) continue
-      if (show.date !== selectedDate) continue
-      if (selectedTheaterId !== "all" && show.theaterId !== parseInt(selectedTheaterId)) continue
-      result.push(show)
-    }
-    return result
-  }
+  var now = new Date()
+  var currentHour = now.getHours()
+  var currentMinute = now.getMinutes()
+  var todayDate = now.toISOString().split("T")[0]
 
-  function groupByTheater(list) {
+  var result = []
+  for (var i = 0; i < showtimes.length; i++) {
+    var show = showtimes[i]
+    if (show.movieId !== selectedMovie.id) continue
+    if (show.date !== selectedDate) continue
+    if (selectedTheaterId !== "all" && show.theaterId !== parseInt(selectedTheaterId)) continue
+
+    // ✅ Filter out past showtimes for today only
+    if (show.date === todayDate) {
+      // parse show time e.g. "10:00 AM", "01:30 PM"
+      var timeParts = show.time.match(/(\d+):(\d+)\s(AM|PM)/)
+      if (timeParts) {
+        var showHour = parseInt(timeParts[1])
+        var showMinute = parseInt(timeParts[2])
+        var period = timeParts[3]
+
+        if (period === "PM" && showHour !== 12) showHour += 12
+        if (period === "AM" && showHour === 12) showHour = 0
+
+        // skip if showtime is in the past (add 30 min buffer)
+        var showTotalMins = showHour * 60 + showMinute
+        var nowTotalMins = currentHour * 60 + currentMinute + 30
+        if (showTotalMins < nowTotalMins) continue
+      }
+    }
+
+    result.push(show)
+  }
+  return result
+}
+
+function groupByTheater(list) {
     var groups = {}
     for (var i = 0; i < list.length; i++) {
       var show = list[i]
