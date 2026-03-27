@@ -1,5 +1,5 @@
-import { createContext, useContext, useState } from "react"
-import { createBooking, cancelBooking as cancelBookingApi } from "../utils/api"
+import { createContext, useContext, useState, useEffect } from "react"
+import { createBooking, cancelBooking as cancelBookingApi, getUserBookings } from "../utils/api"
 
 export var AppContext = createContext(null)
 
@@ -34,6 +34,22 @@ export function AppProvider({ children }) {
   var [currentBooking, setCurrentBooking] = useState(null)
   var [searchQuery, setSearchQuery] = useState("")
   var [selectedGenre, setSelectedGenre] = useState("All")
+
+  // ✅ FIX 1: On refresh, fetch bookings from backend
+  useEffect(function () {
+    if (savedUser && savedUser.email) {
+      getUserBookings(savedUser.email)
+        .then(function (res) {
+          if (res && res.success && res.data && res.data.length > 0) {
+            setBookings(res.data)
+            localStorage.setItem("popcornpass_bookings", JSON.stringify(res.data))
+          }
+        })
+        .catch(function (err) {
+          console.log("Could not refresh bookings on load:", err)
+        })
+    }
+  }, [])
 
   function navigate(page) {
     setCurrentPage(page)
@@ -115,7 +131,6 @@ export function AppProvider({ children }) {
       status: "confirmed"
     }
 
-    // save to backend
     createBooking(newBooking)
       .then(function (res) {
         if (res && res.success) {
@@ -123,7 +138,6 @@ export function AppProvider({ children }) {
         }
       })
 
-    // save to localStorage
     var updatedBookings = [...bookings, newBooking]
     setBookings(updatedBookings)
     localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
@@ -133,22 +147,36 @@ export function AppProvider({ children }) {
     navigate("confirmation")
   }
 
+  // ✅ FIX 2: After login, fetch bookings from backend
   function login(userData) {
     setUser(userData)
-    // save user to localStorage
     localStorage.setItem("popcornpass_user", JSON.stringify(userData))
     setShowAuthModal(false)
+
+    if (userData && userData.email) {
+      getUserBookings(userData.email)
+        .then(function (res) {
+          if (res && res.success && res.data && res.data.length > 0) {
+            setBookings(res.data)
+            localStorage.setItem("popcornpass_bookings", JSON.stringify(res.data))
+          }
+        })
+        .catch(function (err) {
+          console.log("Could not fetch bookings after login:", err)
+        })
+    }
   }
 
+  // ✅ FIX 3: Clear bookings on logout
   function logout() {
     setUser(null)
-    // remove user from localStorage
+    setBookings([])
     localStorage.removeItem("popcornpass_user")
+    localStorage.removeItem("popcornpass_bookings")
     navigate("home")
   }
 
   function cancelBooking(bookingId) {
-    // cancel in backend
     cancelBookingApi(bookingId)
       .then(function (res) {
         if (res && res.success) {
@@ -163,7 +191,6 @@ export function AppProvider({ children }) {
       }
     }
     setBookings(newBookings)
-    // update localStorage
     localStorage.setItem("popcornpass_bookings", JSON.stringify(newBookings))
   }
 

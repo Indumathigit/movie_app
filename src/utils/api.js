@@ -1,19 +1,19 @@
-var BASE_URL = "https://movie-booking-backend-k3uc.onrender.com/"
+var BASE_URL = "https://movie-booking-backend-k3uc.onrender.com"
 
 function getAllMovies() {
-  return fetch(BASE_URL + "/movies")
+  return fetch(BASE_URL + "/api/movies")
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error fetching movies:", err) })
 }
 
 function getMovieById(id) {
-  return fetch(BASE_URL + "/movies/" + id)
+  return fetch(BASE_URL + "/api/movies/" + id)
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error fetching movie:", err) })
 }
 
 function createBooking(bookingData) {
-  return fetch(BASE_URL + "/bookings", {
+  return fetch(BASE_URL + "/api/bookings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(bookingData)
@@ -23,14 +23,14 @@ function createBooking(bookingData) {
 }
 
 function getUserBookings(email) {
-  return fetch(BASE_URL + "/bookings/user/" + email)
+  return fetch(BASE_URL + "/api/bookings/user/" + email)
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error fetching bookings:", err) })
 }
 
 function cancelBooking(bookingId) {
-  return fetch(BASE_URL + "/bookings/cancel/" + bookingId, {
-    method: "PUT",
+  return fetch(BASE_URL + "/api/bookings/" + bookingId, {
+    method: "DELETE",
     headers: { "Content-Type": "application/json" }
   })
     .then(function (res) { return res.json() })
@@ -38,7 +38,7 @@ function cancelBooking(bookingId) {
 }
 
 function getAllTheaters() {
-  return fetch(BASE_URL + "/theaters")
+  return fetch(BASE_URL + "/api/theaters")
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error fetching theaters:", err) })
 }
