@@ -35,21 +35,24 @@ export function AppProvider({ children }) {
   var [searchQuery, setSearchQuery] = useState("")
   var [selectedGenre, setSelectedGenre] = useState("All")
 
-  // ✅ FIX 1: On refresh, fetch bookings from backend
-  useEffect(function () {
-    if (savedUser && savedUser.email) {
-      getUserBookings(savedUser.email)
-        .then(function (res) {
-          if (res && res.success && res.data && res.data.length > 0) {
-            setBookings(res.data)
-            localStorage.setItem("popcornpass_bookings", JSON.stringify(res.data))
-          }
-        })
-        .catch(function (err) {
-          console.log("Could not refresh bookings on load:", err)
-        })
-    }
-  }, [])
+ useEffect(function () {
+  if (savedUser && savedUser.email) {
+    getUserBookings(savedUser.email)
+      .then(function (res) {
+        if (res && res.success && res.data && res.data.length > 0) {
+          // normalize backend bookings to have id field
+          var normalized = res.data.map(function(b) {
+            return Object.assign({}, b, { id: b.bookingId || b._id })
+          })
+          setBookings(normalized)
+          localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
+        }
+      })
+      .catch(function (err) {
+        console.log("Could not refresh bookings on load:", err)
+      })
+  }
+}, [])
 
   function navigate(page) {
     setCurrentPage(page)
@@ -116,58 +119,61 @@ export function AppProvider({ children }) {
     }
     navigate("payment")
   }
+function confirmBooking(paymentDetails) {
+  var newBooking = {
+    id: "BK" + Date.now(),
+    bookingId: "BK" + Date.now(),
+    movie: selectedMovie,
+    showtime: selectedShowtime,
+    seats: selectedSeats,
+    totalAmount: calculateTotal(),
+    paymentDetails: paymentDetails,
+    bookedAt: new Date().toISOString(),
+    user: user,
+    status: "confirmed"
+  }
 
-  function confirmBooking(paymentDetails) {
-    var newBooking = {
-      id: "BK" + Date.now(),
-      bookingId: "BK" + Date.now(),
-      movie: selectedMovie,
-      showtime: selectedShowtime,
-      seats: selectedSeats,
-      totalAmount: calculateTotal(),
-      paymentDetails: paymentDetails,
-      bookedAt: new Date().toISOString(),
-      user: user,
-      status: "confirmed"
-    }
+  // save to backend
+  createBooking(newBooking)
+    .then(function (res) {
+      if (res && res.success) {
+        console.log("Booking saved to database!")
+      }
+    })
 
-    createBooking(newBooking)
+  // save to localStorage and state immediately (don't wait for backend)
+  var updatedBookings = [...bookings, newBooking]
+  setBookings(updatedBookings)
+  localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
+
+  setCurrentBooking(newBooking)
+  setSelectedSeats([])
+  navigate("confirmation")
+}
+
+function login(userData) {
+  setUser(userData)
+  localStorage.setItem("popcornpass_user", JSON.stringify(userData))
+  setShowAuthModal(false)
+
+  if (userData && userData.email) {
+    getUserBookings(userData.email)
       .then(function (res) {
-        if (res && res.success) {
-          console.log("Booking saved to database!")
+        if (res && res.success && res.data && res.data.length > 0) {
+          // normalize backend bookings to have id field
+          var normalized = res.data.map(function(b) {
+            return Object.assign({}, b, { id: b.bookingId || b._id })
+          })
+          setBookings(normalized)
+          localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
         }
       })
-
-    var updatedBookings = [...bookings, newBooking]
-    setBookings(updatedBookings)
-    localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
-
-    setCurrentBooking(newBooking)
-    setSelectedSeats([])
-    navigate("confirmation")
+      .catch(function (err) {
+        console.log("Could not fetch bookings after login:", err)
+      })
   }
-
-  // ✅ FIX 2: After login, fetch bookings from backend
-  function login(userData) {
-    setUser(userData)
-    localStorage.setItem("popcornpass_user", JSON.stringify(userData))
-    setShowAuthModal(false)
-
-    if (userData && userData.email) {
-      getUserBookings(userData.email)
-        .then(function (res) {
-          if (res && res.success && res.data && res.data.length > 0) {
-            setBookings(res.data)
-            localStorage.setItem("popcornpass_bookings", JSON.stringify(res.data))
-          }
-        })
-        .catch(function (err) {
-          console.log("Could not fetch bookings after login:", err)
-        })
-    }
-  }
-
-  // ✅ FIX 3: Clear bookings on logout
+}
+  
   function logout() {
     setUser(null)
     setBookings([])
