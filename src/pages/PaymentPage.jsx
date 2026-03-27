@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useApp } from "../context/AppContext"
 
 export default function PaymentPage() {
-  var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate } = useApp()
+  var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
 
   var [paymentMethod, setPaymentMethod] = useState("card")
   var [loading, setLoading] = useState(false)
@@ -47,52 +47,82 @@ export default function PaymentPage() {
     setCardCvv(value)
   }
 
-  function validateAndPay() {
+  function validateInputs() {
     setError("")
 
     if (paymentMethod === "card") {
       var rawNumber = cardNumber.replace(/\s/g, "")
       if (rawNumber.length !== 16) {
         setError("Enter a valid 16 digit card number")
-        return
+        return false
       }
       if (cardName.trim() === "") {
         setError("Enter cardholder name")
-        return
+        return false
       }
       if (cardExpiry.length !== 5) {
         setError("Enter valid expiry date MM/YY")
-        return
+        return false
       }
       if (cardCvv.length !== 3) {
         setError("Enter valid 3 digit CVV")
-        return
+        return false
       }
     }
 
     if (paymentMethod === "upi") {
       if (upiId.trim() === "") {
         setError("Enter your UPI ID")
-        return
+        return false
       }
       if (!upiId.includes("@")) {
         setError("Enter a valid UPI ID like name@upi")
-        return
+        return false
       }
     }
 
+    return true
+  }
+
+  function handleRazorpay() {
+    if (!validateInputs()) return
+
     setLoading(true)
 
-    setTimeout(function () {
-      var paymentDetails = {
-        method: paymentMethod,
-        transactionId: "TXN" + Date.now(),
-        status: "success",
-        paidAt: new Date().toISOString()
+    var options = {
+      key: "rzp_test_1DP5mmOlF5G5ag",
+      amount: grandTotal * 100,
+      currency: "INR",
+      name: "PopcornPass",
+      description: "Movie Ticket Booking - " + selectedMovie.title,
+      image: "https://i.imgur.com/n5tjHFD.png",
+      handler: function (response) {
+        var paymentDetails = {
+          method: paymentMethod,
+          transactionId: response.razorpay_payment_id,
+          status: "success",
+          paidAt: new Date().toISOString()
+        }
+        confirmBooking(paymentDetails)
+        setLoading(false)
+      },
+      prefill: {
+        name: user ? user.name : "",
+        email: user ? user.email : ""
+      },
+      theme: {
+        color: "#dc2626"
+      },
+      modal: {
+        ondismiss: function () {
+          setLoading(false)
+          setError("Payment cancelled. Please try again.")
+        }
       }
-      confirmBooking(paymentDetails)
-      setLoading(false)
-    }, 2000)
+    }
+
+    var rzp = new window.Razorpay(options)
+    rzp.open()
   }
 
   if (!selectedMovie || !selectedShowtime || selectedSeats.length === 0) {
@@ -104,7 +134,6 @@ export default function PaymentPage() {
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {/* back button */}
         <button
           onClick={handleBack}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm"
@@ -116,7 +145,6 @@ export default function PaymentPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* left side - payment form */}
           <div className="lg:col-span-2 flex flex-col gap-5">
 
             {/* payment method tabs */}
@@ -164,7 +192,6 @@ export default function PaymentPage() {
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Card Details</h2>
 
-                {/* card preview */}
                 <div className="bg-gradient-to-br from-red-900 to-gray-900 rounded-2xl p-5 mb-6 border border-red-800/30">
                   <div className="flex justify-between items-start mb-6">
                     <div className="w-10 h-7 bg-yellow-400 rounded-md opacity-80" />
@@ -185,7 +212,6 @@ export default function PaymentPage() {
                   </div>
                 </div>
 
-                {/* card inputs */}
                 <div className="flex flex-col gap-4">
                   <div>
                     <label className="text-gray-400 text-sm mb-1 block">Card Number</label>
@@ -264,7 +290,7 @@ export default function PaymentPage() {
               </div>
             )}
 
-            {/* wallet form */}
+            {/* wallet */}
             {paymentMethod === "wallet" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Select Wallet</h2>
@@ -289,16 +315,16 @@ export default function PaymentPage() {
               </div>
             )}
 
-            {/* error message */}
+            {/* error */}
             {error && (
               <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">
                 {error}
               </p>
             )}
 
-            {/* pay button */}
+            {/* razorpay pay button */}
             <button
-              onClick={validateAndPay}
+              onClick={handleRazorpay}
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg"
             >
@@ -308,20 +334,20 @@ export default function PaymentPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Processing Payment...
+                  Processing...
                 </span>
               ) : (
-                "Pay ₹" + grandTotal
+                "Pay ₹" + grandTotal + " via Razorpay"
               )}
             </button>
 
             <p className="text-center text-gray-600 text-xs">
-              🔒 Your payment is 100% secure and encrypted
+              🔒 Secured by Razorpay Payment Gateway
             </p>
 
           </div>
 
-          {/* right side - order summary */}
+          {/* order summary */}
           <div className="flex flex-col gap-4">
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Booking Summary</h2>
@@ -376,23 +402,11 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* offers */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <h3 className="text-white text-sm font-semibold mb-3">Available Offers</h3>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3 bg-green-900/20 border border-green-800/40 rounded-xl p-3">
-                  <span className="text-green-400 text-xs font-bold bg-green-900/40 px-2 py-1 rounded-lg">
-                    CINE10
-                  </span>
-                  <span className="text-gray-400 text-xs">10% off on first booking</span>
-                </div>
-                <div className="flex items-center gap-3 bg-green-900/20 border border-green-800/40 rounded-xl p-3">
-                  <span className="text-green-400 text-xs font-bold bg-green-900/40 px-2 py-1 rounded-lg">
-                    HDFC20
-                  </span>
-                  <span className="text-gray-400 text-xs">20% off with HDFC cards</span>
-                </div>
-              </div>
+            {/* razorpay badge */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center">
+              <p className="text-gray-400 text-xs mb-2">Secured Payment by</p>
+              <p className="text-blue-400 font-bold text-lg">Razorpay</p>
+              <p className="text-gray-600 text-xs mt-1">PCI DSS Compliant</p>
             </div>
 
           </div>
