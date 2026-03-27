@@ -26,7 +26,7 @@ export function AppProvider({ children }) {
   var [currentPage, setCurrentPage] = useState("home")
   var [selectedMovie, setSelectedMovie] = useState(null)
   var [selectedShowtime, setSelectedShowtime] = useState(null)
-  var [selectedDate, setSelectedDate] = useState("2026-03-22")
+ var [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
   var [selectedSeats, setSelectedSeats] = useState([])
   var [user, setUser] = useState(savedUser)
   var [showAuthModal, setShowAuthModal] = useState(false)

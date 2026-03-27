@@ -155,23 +155,53 @@ export var theaters = [
   }
 ]
 
-// Showtimes Data
-export var showtimes = [
-  { id: 1, movieId: 1, theaterId: 1, date: "2026-03-22", time: "10:00 AM", screen: "Screen 1", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 78 },
-  { id: 2, movieId: 1, theaterId: 1, date: "2026-03-22", time: "01:30 PM", screen: "Screen 1", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 45 },
-  { id: 3, movieId: 1, theaterId: 2, date: "2026-03-22", time: "04:00 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 92 },
-  { id: 4, movieId: 1, theaterId: 2, date: "2026-03-22", time: "07:30 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 12 },
-  { id: 5, movieId: 1, theaterId: 3, date: "2026-03-22", time: "09:00 PM", screen: "Screen 2", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 60 },
-  { id: 6, movieId: 2, theaterId: 1, date: "2026-03-22", time: "11:00 AM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 88 },
-  { id: 7, movieId: 2, theaterId: 2, date: "2026-03-22", time: "02:00 PM", screen: "Screen 1", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 30 },
-  { id: 8, movieId: 2, theaterId: 3, date: "2026-03-22", time: "06:00 PM", screen: "Screen 4", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 55 },
-  { id: 9, movieId: 3, theaterId: 1, date: "2026-03-22", time: "12:00 PM", screen: "Screen 3", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 70 },
-  { id: 10, movieId: 3, theaterId: 2, date: "2026-03-22", time: "03:30 PM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 95 },
-  { id: 11, movieId: 4, theaterId: 1, date: "2026-03-22", time: "10:30 AM", screen: "Screen 4", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 65 },
-  { id: 12, movieId: 4, theaterId: 3, date: "2026-03-22", time: "05:00 PM", screen: "Screen 1", format: "Dolby Vision", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 40 },
-  { id: 13, movieId: 5, theaterId: 2, date: "2026-03-22", time: "01:00 PM", screen: "Screen 5", format: "3D", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 80 },
-  { id: 14, movieId: 5, theaterId: 3, date: "2026-03-22", time: "07:00 PM", screen: "Screen 3", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 22 }
-]
+// ✅ Showtimes generated dynamically for today + next 7 days
+// This ensures showtimes always show regardless of what day it is
+function generateShowtimes() {
+  var baseShowtimes = [
+    { movieId: 1, theaterId: 1, time: "10:00 AM", screen: "Screen 1", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 78 },
+    { movieId: 1, theaterId: 1, time: "01:30 PM", screen: "Screen 1", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 45 },
+    { movieId: 1, theaterId: 2, time: "04:00 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 92 },
+    { movieId: 1, theaterId: 2, time: "07:30 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 12 },
+    { movieId: 1, theaterId: 3, time: "09:00 PM", screen: "Screen 2", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 60 },
+    { movieId: 2, theaterId: 1, time: "11:00 AM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 88 },
+    { movieId: 2, theaterId: 2, time: "02:00 PM", screen: "Screen 1", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 30 },
+    { movieId: 2, theaterId: 3, time: "06:00 PM", screen: "Screen 4", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 55 },
+    { movieId: 3, theaterId: 1, time: "12:00 PM", screen: "Screen 3", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 70 },
+    { movieId: 3, theaterId: 2, time: "03:30 PM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 95 },
+    { movieId: 4, theaterId: 1, time: "10:30 AM", screen: "Screen 4", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 65 },
+    { movieId: 4, theaterId: 3, time: "05:00 PM", screen: "Screen 1", format: "Dolby Vision", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 40 },
+    { movieId: 5, theaterId: 2, time: "01:00 PM", screen: "Screen 5", format: "3D", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 80 },
+    { movieId: 5, theaterId: 3, time: "07:00 PM", screen: "Screen 3", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 22 }
+  ]
+
+  var result = []
+  var id = 1
+
+  for (var day = 0; day < 7; day++) {
+    var d = new Date()
+    d.setDate(d.getDate() + day)
+    var date = d.toISOString().split("T")[0]
+
+    for (var i = 0; i < baseShowtimes.length; i++) {
+      result.push({
+        id: id++,
+        date: date,
+        movieId: baseShowtimes[i].movieId,
+        theaterId: baseShowtimes[i].theaterId,
+        time: baseShowtimes[i].time,
+        screen: baseShowtimes[i].screen,
+        format: baseShowtimes[i].format,
+        price: baseShowtimes[i].price,
+        availableSeats: baseShowtimes[i].availableSeats
+      })
+    }
+  }
+
+  return result
+}
+
+export var showtimes = generateShowtimes()
 
 // Seat Layout Generator
 export function generateSeats(showtimeId) {
