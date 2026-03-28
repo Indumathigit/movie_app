@@ -47,7 +47,38 @@ export {
   getAllMovies,
   getMovieById,
   createBooking,
-  getUserBookings,
+  getUserBookings,  
   cancelBooking,
   getAllTheaters
+}
+
+function registerUser(name, email, password) {
+  return fetch(BASE_URL + "/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password })
+  })
+    .then(function(res) { return res.json() })
+    .catch(function(err) { console.log("Error registering:", err) })
+}
+
+function loginUser(email, password) {
+  return fetch(BASE_URL + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  })
+    .then(function(res) { return res.json() })
+    .catch(function(err) { console.log("Error logging in:", err) })
+}
+
+export {
+  getAllMovies,
+  getMovieById,
+  createBooking,
+  getUserBookings,
+  cancelBooking,
+  getAllTheaters,
+  registerUser,
+  loginUser
 }
