@@ -43,23 +43,14 @@ function getAllTheaters() {
     .catch(function (err) { console.log("Error fetching theaters:", err) })
 }
 
-export {
-  getAllMovies,
-  getMovieById,
-  createBooking,
-  getUserBookings,  
-  cancelBooking,
-  getAllTheaters
-}
-
 function registerUser(name, email, password) {
   return fetch(BASE_URL + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email, password })
   })
-    .then(function(res) { return res.json() })
-    .catch(function(err) { console.log("Error registering:", err) })
+    .then(function (res) { return res.json() })
+    .catch(function (err) { console.log("Error registering:", err) })
 }
 
 function loginUser(email, password) {
@@ -68,8 +59,8 @@ function loginUser(email, password) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
   })
-    .then(function(res) { return res.json() })
-    .catch(function(err) { console.log("Error logging in:", err) })
+    .then(function (res) { return res.json() })
+    .catch(function (err) { console.log("Error logging in:", err) })
 }
 
 export {
