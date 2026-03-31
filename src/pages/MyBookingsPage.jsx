@@ -84,13 +84,16 @@ export default function MyBookingsPage() {
                         {booking.movie.genre.join(", ")} • {booking.showtime.format}
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div>
-                          <p className="text-gray-500 text-xs">Date</p>
-                          <p className="text-white text-sm font-medium">
-                            {formatDate(booking.bookedAt)}
-                          </p>
-                        </div>
-                        <div>
+          <div>
+  <p className="text-gray-500 text-xs">Movie Date</p>
+  <p className="text-white text-sm font-medium">
+    {booking.showtime.date
+      ? new Date(booking.showtime.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+      : formatDate(booking.bookedAt)}
+  </p>
+</div>
+
+<div>
                           <p className="text-gray-500 text-xs">Time</p>
                           <p className="text-white text-sm font-medium">
                             {booking.showtime.time}

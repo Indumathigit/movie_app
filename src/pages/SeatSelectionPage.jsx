@@ -15,33 +15,34 @@ export default function SeatSelectionPage() {
   } = useApp()
 
   var [seats] = useState(function () {
-    var allSeats = generateSeats(selectedShowtime ? selectedShowtime.id : 1)
+  var allSeats = generateSeats(selectedShowtime ? selectedShowtime.id : 1)
 
-    // get already booked seats for this showtime
-    var bookedSeatIds = []
-    for (var i = 0; i < bookings.length; i++) {
-      var booking = bookings[i]
-      if (
-        booking.showtime.id === selectedShowtime.id &&
-        booking.showtime.date === selectedShowtime.date
-      ) {
-        for (var j = 0; j < booking.seats.length; j++) {
-          bookedSeatIds.push(booking.seats[j].id)
-        }
+  // get already booked seats for this showtime
+ var bookedSeatIds = []
+for (var i = 0; i < bookings.length; i++) {
+  var booking = bookings[i]
+  // ✅ match by time + screen + date, not id
+  if (
+    booking.showtime.time === selectedShowtime.time &&
+    booking.showtime.screen === selectedShowtime.screen &&
+    booking.showtime.date === selectedShowtime.date
+  ) {
+    for (var j = 0; j < booking.seats.length; j++) {
+      bookedSeatIds.push(booking.seats[j].id)
+    }
+  }
+}
+  // mark booked seats as reserved
+  for (var i = 0; i < allSeats.length; i++) {
+    for (var j = 0; j < bookedSeatIds.length; j++) {
+      if (allSeats[i].id === bookedSeatIds[j]) {
+        allSeats[i].status = "reserved"
       }
     }
+  }
 
-    // mark booked seats as reserved
-    for (var i = 0; i < allSeats.length; i++) {
-      for (var j = 0; j < bookedSeatIds.length; j++) {
-        if (allSeats[i].id === bookedSeatIds[j]) {
-          allSeats[i].status = "reserved"
-        }
-      }
-    }
-
-    return allSeats
-  })
+  return allSeats
+})
 
   function handleBack() {
     navigate("showtimes")

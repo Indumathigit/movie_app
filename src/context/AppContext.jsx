@@ -152,6 +152,10 @@ function confirmBooking(paymentDetails) {
 }
 
 function login(userData) {
+  // ✅ Clear previous user's bookings first
+  setBookings([])
+  localStorage.removeItem("popcornpass_bookings")
+
   setUser(userData)
   localStorage.setItem("popcornpass_user", JSON.stringify(userData))
   setShowAuthModal(false)
@@ -160,7 +164,6 @@ function login(userData) {
     getUserBookings(userData.email)
       .then(function (res) {
         if (res && res.success && res.data && res.data.length > 0) {
-          // normalize backend bookings to have id field
           var normalized = res.data.map(function(b) {
             return Object.assign({}, b, { id: b.bookingId || b._id })
           })
@@ -172,8 +175,7 @@ function login(userData) {
         console.log("Could not fetch bookings after login:", err)
       })
   }
-}
-  
+}  
   function logout() {
     setUser(null)
     setBookings([])

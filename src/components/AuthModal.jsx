@@ -24,22 +24,30 @@ export default function AuthModal() {
     if (isLogin) {
       loginUser(email, password)
         .then(function(res) {
-          if (res && res.success) {
+          setLoading(false)
+          if (res && res.success && res.user) {
             login(res.user)
           } else {
-            setError(res ? res.message : "Login failed. Try again.")
+            setError(res && res.message ? res.message : "Invalid email or password")
           }
+        })
+        .catch(function() {
           setLoading(false)
+          setError("Something went wrong. Try again.")
         })
     } else {
       registerUser(name, email, password)
         .then(function(res) {
-          if (res && res.success) {
+          setLoading(false)
+          if (res && res.success && res.user) {
             login(res.user)
           } else {
-            setError(res ? res.message : "Registration failed. Try again.")
+            setError(res && res.message ? res.message : "Registration failed. Try again.")
           }
+        })
+        .catch(function() {
           setLoading(false)
+          setError("Something went wrong. Try again.")
         })
     }
   }
@@ -62,7 +70,6 @@ export default function AuthModal() {
       onClick={handleBackdropClick}
     >
       <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-8 relative">
-
         <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
 
         <div className="text-center mb-8">
@@ -77,24 +84,27 @@ export default function AuthModal() {
           {!isLogin && (
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Full Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your name"
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 text-sm" />
             </div>
           )}
-
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Email</label>
-            <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email"
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 text-sm" />
           </div>
-
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password"
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 text-sm" />
           </div>
 
-          {error && <p className="text-red-400 text-sm text-center bg-red-900/20 py-2 rounded-lg">{error}</p>}
+          {error && (
+            <p className="text-red-400 text-sm text-center bg-red-900/20 py-2 rounded-lg">{error}</p>
+          )}
 
           <button type="submit" disabled={loading}
             className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white font-semibold py-3 rounded-lg mt-2">
@@ -108,7 +118,6 @@ export default function AuthModal() {
             {isLogin ? "Sign Up" : "Login"}
           </button>
         </p>
-
       </div>
     </div>
   )
