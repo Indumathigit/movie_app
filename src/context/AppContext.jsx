@@ -176,6 +176,12 @@ function login(userData) {
       })
   }
 }  
+
+function getBookingsByShowtime(date, time, screen) {
+  return fetch(BASE_URL + "/api/bookings/showtime?date=" + date + "&time=" + encodeURIComponent(time) + "&screen=" + encodeURIComponent(screen))
+    .then(function(res) { return res.json() })
+    .catch(function(err) { console.log("Error fetching showtime bookings:", err) })
+}
   function logout() {
     setUser(null)
     setBookings([])

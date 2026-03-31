@@ -63,6 +63,11 @@ function loginUser(email, password) {
     .catch(function (err) { console.log("Error logging in:", err) })
 }
 
+function getBookingsByShowtime(date, time, screen) {
+  return fetch(BASE_URL + "/api/bookings/showtime?date=" + date + "&time=" + encodeURIComponent(time) + "&screen=" + encodeURIComponent(screen))
+    .then(function(res) { return res.json() })
+    .catch(function(err) { console.log("Error fetching showtime bookings:", err) })
+}
 export {
   getAllMovies,
   getMovieById,
@@ -71,5 +76,6 @@ export {
   cancelBooking,
   getAllTheaters,
   registerUser,
+  getBookingsByShowtime,
   loginUser
 }
