@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useApp } from "../context/AppContext"
 import { generateSeats } from "../data/mockData"
+import { getBookingsByShowtime } from "../utils/api"
 
 export default function SeatSelectionPage() {
   var {
@@ -11,38 +12,45 @@ export default function SeatSelectionPage() {
     proceedToPayment,
     calculateTotal,
     navigate,
-    bookings
   } = useApp()
 
-  var [seats] = useState(function () {
-  var allSeats = generateSeats(selectedShowtime ? selectedShowtime.id : 1)
+  var [seats, setSeats] = useState([])
+  var [loadingSeats, setLoadingSeats] = useState(true)
 
-  // get already booked seats for this showtime
- var bookedSeatIds = []
-for (var i = 0; i < bookings.length; i++) {
-  var booking = bookings[i]
-  // ✅ match by time + screen + date, not id
-  if (
-    booking.showtime.time === selectedShowtime.time &&
-    booking.showtime.screen === selectedShowtime.screen &&
-    booking.showtime.date === selectedShowtime.date
-  ) {
-    for (var j = 0; j < booking.seats.length; j++) {
-      bookedSeatIds.push(booking.seats[j].id)
-    }
-  }
-}
-  // mark booked seats as reserved
-  for (var i = 0; i < allSeats.length; i++) {
-    for (var j = 0; j < bookedSeatIds.length; j++) {
-      if (allSeats[i].id === bookedSeatIds[j]) {
-        allSeats[i].status = "reserved"
-      }
-    }
-  }
+  // ✅ Fetch ALL bookings for this showtime from backend
+  useEffect(function() {
+    if (!selectedShowtime) return
+    setLoadingSeats(true)
 
-  return allSeats
-})
+    var allSeats = generateSeats(selectedShowtime.id)
+
+    getBookingsByShowtime(selectedShowtime.date, selectedShowtime.time, selectedShowtime.screen)
+      .then(function(res) {
+        var bookedSeatIds = []
+        if (res && res.success && res.data) {
+          for (var i = 0; i < res.data.length; i++) {
+            var booking = res.data[i]
+            for (var j = 0; j < booking.seats.length; j++) {
+              bookedSeatIds.push(booking.seats[j].id)
+            }
+          }
+        }
+
+        // mark booked seats as reserved
+        for (var i = 0; i < allSeats.length; i++) {
+          if (bookedSeatIds.indexOf(allSeats[i].id) !== -1) {
+            allSeats[i].status = "reserved"
+          }
+        }
+
+        setSeats(allSeats)
+        setLoadingSeats(false)
+      })
+      .catch(function() {
+        setSeats(allSeats)
+        setLoadingSeats(false)
+      })
+  }, [selectedShowtime])
 
   function handleBack() {
     navigate("showtimes")
@@ -55,26 +63,16 @@ for (var i = 0; i < bookings.length; i++) {
 
   function isSelected(seat) {
     for (var i = 0; i < selectedSeats.length; i++) {
-      if (selectedSeats[i].id === seat.id) {
-        return true
-      }
+      if (selectedSeats[i].id === seat.id) return true
     }
     return false
   }
 
   function getSeatClass(seat) {
-    if (isSelected(seat)) {
-      return "bg-red-500 border-red-400 text-white scale-110"
-    }
-    if (seat.status === "reserved") {
-      return "bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed opacity-50"
-    }
-    if (seat.type === "recliner") {
-      return "bg-purple-900/50 border-purple-600 text-purple-300 hover:bg-purple-600 hover:text-white cursor-pointer"
-    }
-    if (seat.type === "premium") {
-      return "bg-blue-900/50 border-blue-600 text-blue-300 hover:bg-blue-600 hover:text-white cursor-pointer"
-    }
+    if (isSelected(seat)) return "bg-red-500 border-red-400 text-white scale-110"
+    if (seat.status === "reserved") return "bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed opacity-50"
+    if (seat.type === "recliner") return "bg-purple-900/50 border-purple-600 text-purple-300 hover:bg-purple-600 hover:text-white cursor-pointer"
+    if (seat.type === "premium") return "bg-blue-900/50 border-blue-600 text-blue-300 hover:bg-blue-600 hover:text-white cursor-pointer"
     return "bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
   }
 
@@ -82,20 +80,14 @@ for (var i = 0; i < bookings.length; i++) {
     var groups = {}
     for (var i = 0; i < seats.length; i++) {
       var seat = seats[i]
-      if (!groups[seat.row]) {
-        groups[seat.row] = []
-      }
+      if (!groups[seat.row]) groups[seat.row] = []
       groups[seat.row].push(seat)
     }
     return groups
   }
 
   function getSelectedSeatIds() {
-    var ids = []
-    for (var i = 0; i < selectedSeats.length; i++) {
-      ids.push(selectedSeats[i].id)
-    }
-    return ids.join(", ")
+    return selectedSeats.map(function(s) { return s.id }).join(", ")
   }
 
   function getSeatPrice(type) {
@@ -108,6 +100,17 @@ for (var i = 0; i < bookings.length; i++) {
     return null
   }
 
+  if (loadingSeats) {
+    return (
+      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">🎬</div>
+          <p className="text-white text-lg">Loading seats...</p>
+        </div>
+      </div>
+    )
+  }
+
   var groupedSeats = groupByRow()
   var rows = Object.keys(groupedSeats)
 
@@ -115,22 +118,13 @@ for (var i = 0; i < bookings.length; i++) {
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {/* back button */}
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm"
-        >
+        <button onClick={handleBack} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm">
           ← Back to Showtimes
         </button>
 
-        {/* booking info bar */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-8 flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-4">
-            <img
-              src={selectedMovie.poster}
-              alt={selectedMovie.title}
-              className="w-12 h-16 object-cover rounded-lg"
-            />
+            <img src={selectedMovie.poster} alt={selectedMovie.title} className="w-12 h-16 object-cover rounded-lg" />
             <div>
               <h2 className="text-white font-bold">{selectedMovie.title}</h2>
               <p className="text-gray-400 text-sm">{selectedShowtime.time} • {selectedShowtime.format}</p>
@@ -139,13 +133,10 @@ for (var i = 0; i < bookings.length; i++) {
           </div>
           <div className="text-right">
             <p className="text-gray-400 text-xs mb-1">Selected Seats</p>
-            <p className="text-white font-bold text-lg">
-              {selectedSeats.length > 0 ? getSelectedSeatIds() : "None"}
-            </p>
+            <p className="text-white font-bold text-lg">{selectedSeats.length > 0 ? getSelectedSeatIds() : "None"}</p>
           </div>
         </div>
 
-        {/* screen */}
         <div className="mb-10 text-center">
           <div className="relative mx-auto max-w-lg">
             <div className="h-2 bg-gradient-to-r from-transparent via-red-500 to-transparent rounded-full mb-2 opacity-80" />
@@ -154,18 +145,15 @@ for (var i = 0; i < bookings.length; i++) {
           </div>
         </div>
 
-        {/* seat map */}
         <div className="mb-8 overflow-x-auto">
           <div className="min-w-max mx-auto">
-            {rows.map(function (row) {
+            {rows.map(function(row) {
               var rowSeats = groupedSeats[row]
               return (
                 <div key={row} className="flex items-center gap-2 mb-2">
-                  <span className="text-gray-500 text-xs w-5 text-center flex-shrink-0">
-                    {row}
-                  </span>
+                  <span className="text-gray-500 text-xs w-5 text-center flex-shrink-0">{row}</span>
                   <div className="flex gap-1.5">
-                    {rowSeats.map(function (seat, index) {
+                    {rowSeats.map(function(seat, index) {
                       return (
                         <div key={seat.id} className="flex items-center gap-1.5">
                           {index === 6 && <div className="w-4" />}
@@ -180,37 +168,25 @@ for (var i = 0; i < bookings.length; i++) {
                       )
                     })}
                   </div>
-                  <span className="text-gray-500 text-xs w-5 text-center flex-shrink-0">
-                    {row}
-                  </span>
+                  <span className="text-gray-500 text-xs w-5 text-center flex-shrink-0">{row}</span>
                 </div>
               )
             })}
           </div>
         </div>
 
-        {/* legend */}
         <div className="flex flex-wrap justify-center gap-5 mb-8">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-t-lg border bg-gray-800 border-gray-600" />
-            <div>
-              <p className="text-gray-300 text-xs">Standard</p>
-              <p className="text-gray-500 text-xs">₹{getSeatPrice("standard")}</p>
-            </div>
+            <div><p className="text-gray-300 text-xs">Standard</p><p className="text-gray-500 text-xs">₹{getSeatPrice("standard")}</p></div>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-t-lg border bg-blue-900/50 border-blue-600" />
-            <div>
-              <p className="text-gray-300 text-xs">Premium</p>
-              <p className="text-gray-500 text-xs">₹{getSeatPrice("premium")}</p>
-            </div>
+            <div><p className="text-gray-300 text-xs">Premium</p><p className="text-gray-500 text-xs">₹{getSeatPrice("premium")}</p></div>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-t-lg border bg-purple-900/50 border-purple-600" />
-            <div>
-              <p className="text-gray-300 text-xs">Recliner</p>
-              <p className="text-gray-500 text-xs">₹{getSeatPrice("recliner")}</p>
-            </div>
+            <div><p className="text-gray-300 text-xs">Recliner</p><p className="text-gray-500 text-xs">₹{getSeatPrice("recliner")}</p></div>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-t-lg border bg-red-500 border-red-400" />
@@ -222,22 +198,16 @@ for (var i = 0; i < bookings.length; i++) {
           </div>
         </div>
 
-        {/* bottom bar */}
         <div className="sticky bottom-0 bg-gray-900 border border-gray-800 rounded-2xl p-4 mt-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               {selectedSeats.length > 0 ? (
                 <div>
-                  <p className="text-gray-400 text-sm mb-1">
-                    {selectedSeats.length} seat{selectedSeats.length > 1 ? "s" : ""} selected
-                  </p>
+                  <p className="text-gray-400 text-sm mb-1">{selectedSeats.length} seat{selectedSeats.length > 1 ? "s" : ""} selected</p>
                   <div className="flex flex-wrap gap-1">
-                    {selectedSeats.map(function (seat) {
+                    {selectedSeats.map(function(seat) {
                       return (
-                        <span
-                          key={seat.id}
-                          className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-0.5 rounded-lg"
-                        >
+                        <span key={seat.id} className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-0.5 rounded-lg">
                           {seat.id} ({seat.type})
                         </span>
                       )
