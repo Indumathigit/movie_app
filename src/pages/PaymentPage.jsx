@@ -19,16 +19,14 @@ export default function PaymentPage() {
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
 
-  function handleBack() {
-    navigate("seats")
-  }
+  function handleBack() { navigate("seats") }
 
   function handleCardNumber(e) {
     var value = e.target.value.replace(/\D/g, "").slice(0, 16)
     var formatted = ""
     for (var i = 0; i < value.length; i++) {
-      if (i > 0 && i % 4 === 0) formatted = formatted + " "
-      formatted = formatted + value[i]
+      if (i > 0 && i % 4 === 0) formatted += " "
+      formatted += value[i]
     }
     setCardNumber(formatted)
   }
@@ -39,20 +37,17 @@ export default function PaymentPage() {
     setCardExpiry(value)
   }
 
-  function handleCvv(e) {
-    setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 3))
-  }
+  function handleCvv(e) { setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 3)) }
 
   function validateInputs() {
     setError("")
     if (paymentMethod === "card") {
       if (cardNumber.replace(/\s/g, "").length !== 16) { setError("Enter a valid 16 digit card number"); return false }
       if (cardName.trim() === "") { setError("Enter cardholder name"); return false }
-      if (cardExpiry.length !== 5) { setError("Enter valid expiry date MM/YY"); return false }
+      if (cardExpiry.length !== 5) { setError("Enter valid expiry MM/YY"); return false }
       if (cardCvv.length !== 3) { setError("Enter valid 3 digit CVV"); return false }
     }
     if (paymentMethod === "upi") {
-      if (upiId.trim() === "") { setError("Enter your UPI ID"); return false }
       if (!upiId.includes("@")) { setError("Enter a valid UPI ID like name@upi"); return false }
     }
     return true
@@ -61,26 +56,20 @@ export default function PaymentPage() {
   function handlePay() {
     if (!validateInputs()) return
     setLoading(true)
-    // simulate processing delay then show OTP screen
-    setTimeout(function () {
-      setLoading(false)
-      setOtpScreen(true)
-    }, 1500)
+    setTimeout(function() { setLoading(false); setOtpScreen(true) }, 1500)
   }
 
   function handleOtpSubmit() {
-    if (otp.length !== 6) { setError("Enter valid 6 digit OTP"); return }
+    if (otp !== "123456") { setError("Invalid OTP. Use 123456 for demo"); return }
     setError("")
     setLoading(true)
-    // simulate OTP verification
-    setTimeout(function () {
-      var paymentDetails = {
+    setTimeout(function() {
+      confirmBooking({
         method: paymentMethod,
         transactionId: "TXN" + Date.now(),
         status: "success",
         paidAt: new Date().toISOString()
-      }
-      confirmBooking(paymentDetails)
+      })
       setLoading(false)
     }, 1500)
   }
@@ -90,39 +79,28 @@ export default function PaymentPage() {
     return null
   }
 
-  // OTP Screen
   if (otpScreen) {
     return (
-      <div className="bg-gray-950 min-h-screen py-8 flex items-center justify-center">
+      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 max-w-sm w-full mx-4">
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">📱</div>
             <h2 className="text-white font-bold text-xl mb-1">OTP Verification</h2>
-            <p className="text-gray-400 text-sm">
-              {paymentMethod === "upi"
-                ? "Enter the OTP sent to your UPI app"
-                : "Enter the OTP sent to your registered mobile number"}
+            <p className="text-gray-400 text-sm">Enter the OTP sent to your registered mobile</p>
+            <p className="text-green-400 text-xs mt-3 bg-green-900/20 py-2 px-4 rounded-lg inline-block">
+              Demo OTP: <strong>123456</strong>
             </p>
-            <p className="text-green-400 text-xs mt-2">Use OTP: 123456 (test mode)</p>
           </div>
-
-          <div className="mb-4">
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Enter 6-digit OTP"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest placeholder-gray-600 outline-none focus:border-red-500 font-mono"
-            />
-          </div>
-
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="Enter 6-digit OTP"
+            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest placeholder-gray-600 outline-none focus:border-red-500 font-mono mb-4"
+          />
           {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
-
-          <button
-            onClick={handleOtpSubmit}
-            disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg"
-          >
+          <button onClick={handleOtpSubmit} disabled={loading}
+            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg mb-3">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
@@ -133,11 +111,8 @@ export default function PaymentPage() {
               </span>
             ) : "Verify & Pay ₹" + grandTotal}
           </button>
-
-          <button
-            onClick={() => { setOtpScreen(false); setOtp(""); setError("") }}
-            className="w-full text-gray-400 text-sm mt-3 hover:text-white"
-          >
+          <button onClick={() => { setOtpScreen(false); setOtp(""); setError("") }}
+            className="w-full text-gray-400 text-sm hover:text-white text-center">
             ← Go Back
           </button>
         </div>
@@ -152,38 +127,28 @@ export default function PaymentPage() {
         <button onClick={handleBack} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm">
           ← Back to Seat Selection
         </button>
-
         <h1 className="text-2xl font-bold text-white mb-8">Complete Payment</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 flex flex-col gap-5">
 
-            {/* payment method tabs */}
+            {/* Payment Method */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Payment Method</h2>
               <div className="grid grid-cols-3 gap-3">
-                {["card", "upi", "wallet"].map(function(method) {
-                  var icons = { card: "💳", upi: "📱", wallet: "👛" }
-                  var labels = { card: "Credit / Debit Card", upi: "UPI", wallet: "Wallet" }
+                {[["card","💳","Credit / Debit Card"],["upi","📱","UPI"],["wallet","👛","Wallet"]].map(function(m) {
                   return (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${
-                        paymentMethod === method
-                          ? "bg-red-600/10 border-red-600 text-red-400"
-                          : "bg-gray-800 border-gray-700 text-gray-400"
-                      }`}
-                    >
-                      <span className="text-2xl">{icons[method]}</span>
-                      <span className="text-xs font-medium text-center">{labels[method]}</span>
+                    <button key={m[0]} onClick={() => setPaymentMethod(m[0])}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${paymentMethod === m[0] ? "bg-red-600/10 border-red-600 text-red-400" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                      <span className="text-2xl">{m[1]}</span>
+                      <span className="text-xs font-medium text-center">{m[2]}</span>
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* card form */}
+            {/* Card Form */}
             {paymentMethod === "card" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Card Details</h2>
@@ -209,23 +174,27 @@ export default function PaymentPage() {
                 <div className="flex flex-col gap-4">
                   <div>
                     <label className="text-gray-400 text-sm mb-1 block">Card Number</label>
-                    <input type="text" value={cardNumber} onChange={handleCardNumber} placeholder="4111 1111 1111 1111"
+                    <input type="text" value={cardNumber} onChange={handleCardNumber}
+                      placeholder="4111 1111 1111 1111"
                       className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm font-mono" />
                   </div>
                   <div>
                     <label className="text-gray-400 text-sm mb-1 block">Cardholder Name</label>
-                    <input type="text" value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Name on card"
+                    <input type="text" value={cardName} onChange={(e) => setCardName(e.target.value)}
+                      placeholder="Name on card"
                       className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-gray-400 text-sm mb-1 block">Expiry Date</label>
-                      <input type="text" value={cardExpiry} onChange={handleExpiry} placeholder="MM/YY"
+                      <input type="text" value={cardExpiry} onChange={handleExpiry}
+                        placeholder="MM/YY"
                         className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm font-mono" />
                     </div>
                     <div>
                       <label className="text-gray-400 text-sm mb-1 block">CVV</label>
-                      <input type="password" value={cardCvv} onChange={handleCvv} placeholder="•••"
+                      <input type="password" value={cardCvv} onChange={handleCvv}
+                        placeholder="•••"
                         className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm font-mono" />
                     </div>
                   </div>
@@ -233,36 +202,36 @@ export default function PaymentPage() {
               </div>
             )}
 
-            {/* upi form */}
+            {/* UPI Form */}
             {paymentMethod === "upi" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">UPI Payment</h2>
                 <div className="grid grid-cols-4 gap-3 mb-5">
-                  {["GPay", "PhonePe", "Paytm", "BHIM"].map(function(app) {
-                    var colors = { GPay: "bg-blue-900", PhonePe: "bg-purple-900", Paytm: "bg-blue-800", BHIM: "bg-orange-900" }
+                  {[["GPay","bg-blue-900"],["PhonePe","bg-purple-900"],["Paytm","bg-blue-800"],["BHIM","bg-orange-900"]].map(function(a) {
                     return (
-                      <div key={app} className={`${colors[app]} rounded-xl p-3 text-center border border-gray-700`}>
-                        <p className="text-white text-xs font-medium">{app}</p>
+                      <div key={a[0]} className={`${a[1]} rounded-xl p-3 text-center border border-gray-700`}>
+                        <p className="text-white text-xs font-medium">{a[0]}</p>
                       </div>
                     )
                   })}
                 </div>
                 <div>
                   <label className="text-gray-400 text-sm mb-1 block">Enter UPI ID</label>
-                  <input type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="yourname@upi"
+                  <input type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)}
+                    placeholder="yourname@upi"
                     className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm" />
                 </div>
               </div>
             )}
 
-            {/* wallet */}
+            {/* Wallet */}
             {paymentMethod === "wallet" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Select Wallet</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {[["Paytm Wallet", "₹1,250"], ["Amazon Pay", "₹890"], ["Mobikwik", "₹450"], ["Freecharge", "₹120"]].map(function(w) {
+                  {[["Paytm Wallet","₹1,250"],["Amazon Pay","₹890"],["Mobikwik","₹450"],["Freecharge","₹120"]].map(function(w) {
                     return (
-                      <div key={w[0]} className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+                      <div key={w[0]} className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-red-500">
                         <p className="text-white text-sm font-medium">{w[0]}</p>
                         <p className="text-green-400 text-xs mt-1">Balance: {w[1]}</p>
                       </div>
@@ -274,11 +243,8 @@ export default function PaymentPage() {
 
             {error && <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">{error}</p>}
 
-            <button
-              onClick={handlePay}
-              disabled={loading}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg"
-            >
+            <button onClick={handlePay} disabled={loading}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
@@ -290,10 +256,10 @@ export default function PaymentPage() {
               ) : "Pay ₹" + grandTotal}
             </button>
 
-            <p className="text-center text-gray-600 text-xs">🔒 Secured by Payment Gateway</p>
+            <p className="text-center text-gray-600 text-xs">🔒 256-bit SSL Encrypted Payment</p>
           </div>
 
-          {/* order summary */}
+          {/* Order Summary */}
           <div className="flex flex-col gap-4">
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Booking Summary</h2>
@@ -339,7 +305,7 @@ export default function PaymentPage() {
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center">
-              <p className="text-gray-400 text-xs mb-2">Secured Payment by</p>
+              <p className="text-gray-400 text-xs mb-1">Secured Payment</p>
               <p className="text-blue-400 font-bold text-lg">PopcornPass Pay</p>
               <p className="text-gray-600 text-xs mt-1">256-bit SSL Encrypted</p>
             </div>
