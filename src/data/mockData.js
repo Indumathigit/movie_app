@@ -155,26 +155,24 @@ export var theaters = [
   }
 ]
 
-// ✅ Showtimes generated dynamically for today + next 7 days
-// This ensures showtimes always show regardless of what day it is
+
 function generateShowtimes() {
   var baseShowtimes = [
-    { movieId: 1, theaterId: 1, time: "10:00 AM", screen: "Screen 1", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 78 },
-    { movieId: 1, theaterId: 1, time: "01:30 PM", screen: "Screen 1", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 45 },
-    { movieId: 1, theaterId: 2, time: "04:00 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 92 },
-    { movieId: 1, theaterId: 2, time: "07:30 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 12 },
-    { movieId: 1, theaterId: 3, time: "09:00 PM", screen: "Screen 2", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 60 },
-    { movieId: 2, theaterId: 1, time: "11:00 AM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 88 },
-    { movieId: 2, theaterId: 2, time: "02:00 PM", screen: "Screen 1", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 30 },
-    { movieId: 2, theaterId: 3, time: "06:00 PM", screen: "Screen 4", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 55 },
-    { movieId: 3, theaterId: 1, time: "12:00 PM", screen: "Screen 3", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 70 },
-    { movieId: 3, theaterId: 2, time: "03:30 PM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 95 },
-    { movieId: 4, theaterId: 1, time: "10:30 AM", screen: "Screen 4", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 65 },
-    { movieId: 4, theaterId: 3, time: "05:00 PM", screen: "Screen 1", format: "Dolby Vision", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 40 },
-    { movieId: 5, theaterId: 2, time: "01:00 PM", screen: "Screen 5", format: "3D", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 80 },
-    { movieId: 5, theaterId: 3, time: "07:00 PM", screen: "Screen 3", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 22 }
-  ]
-
+  { movieId: 1, theaterId: 1, time: "10:00 AM", screen: "Screen 1", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 96 },
+  { movieId: 1, theaterId: 1, time: "01:30 PM", screen: "Screen 1", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 96 },
+  { movieId: 1, theaterId: 2, time: "04:00 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 96 },
+  { movieId: 1, theaterId: 2, time: "07:30 PM", screen: "Screen 3", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 96 },
+  { movieId: 1, theaterId: 3, time: "09:00 PM", screen: "Screen 2", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 96 },
+  { movieId: 2, theaterId: 1, time: "11:00 AM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 96 },
+  { movieId: 2, theaterId: 2, time: "02:00 PM", screen: "Screen 1", format: "IMAX", price: { standard: 350, premium: 450, recliner: 600 }, availableSeats: 96 },
+  { movieId: 2, theaterId: 3, time: "06:00 PM", screen: "Screen 4", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 96 },
+  { movieId: 3, theaterId: 1, time: "12:00 PM", screen: "Screen 3", format: "Dolby Atmos", price: { standard: 220, premium: 320, recliner: 500 }, availableSeats: 96 },
+  { movieId: 3, theaterId: 2, time: "03:30 PM", screen: "Screen 2", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 96 },
+  { movieId: 4, theaterId: 1, time: "10:30 AM", screen: "Screen 4", format: "2D", price: { standard: 180, premium: 280, recliner: 450 }, availableSeats: 96 },
+  { movieId: 4, theaterId: 3, time: "05:00 PM", screen: "Screen 1", format: "Dolby Vision", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 96 },
+  { movieId: 5, theaterId: 2, time: "01:00 PM", screen: "Screen 5", format: "3D", price: { standard: 250, premium: 350, recliner: 520 }, availableSeats: 96 },
+  { movieId: 5, theaterId: 3, time: "07:00 PM", screen: "Screen 3", format: "4DX", price: { standard: 400, premium: 500, recliner: 650 }, availableSeats: 96 }
+]
   var result = []
   var id = 1
 
