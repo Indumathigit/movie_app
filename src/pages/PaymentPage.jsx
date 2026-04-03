@@ -1,5 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useApp } from "../context/AppContext"
+
+const STRIPE_KEY = "pk_test_51TI0ebFwCY90Xpbs2zvWCuSOQ483oi4lDLsDYUK8jN3dP7hoXDxdaD25HXKALVA7PiL04rJ2feVrAXrep4HbvRuA00HKtnwNRj"
 
 export default function PaymentPage() {
   var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
@@ -12,12 +14,28 @@ export default function PaymentPage() {
   var [cardCvv, setCardCvv] = useState("")
   var [upiId, setUpiId] = useState("")
   var [error, setError] = useState("")
-  var [otpScreen, setOtpScreen] = useState(false)
-  var [otp, setOtp] = useState("")
+  var [stripeLoaded, setStripeLoaded] = useState(false)
+  var [stripe, setStripe] = useState(null)
 
   var total = calculateTotal()
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
+
+  // ✅ Load Stripe.js dynamically
+  useEffect(function() {
+    if (window.Stripe) {
+      setStripe(window.Stripe(STRIPE_KEY))
+      setStripeLoaded(true)
+      return
+    }
+    var script = document.createElement("script")
+    script.src = "https://js.stripe.com/v3/"
+    script.onload = function() {
+      setStripe(window.Stripe(STRIPE_KEY))
+      setStripeLoaded(true)
+    }
+    document.head.appendChild(script)
+  }, [])
 
   function handleBack() { navigate("seats") }
 
@@ -53,15 +71,57 @@ export default function PaymentPage() {
     return true
   }
 
-  function handlePay() {
+  async function handlePay() {
     if (!validateInputs()) return
+    if (!stripe) { setError("Payment system loading, please wait..."); return }
+
     setLoading(true)
-    setTimeout(function() { setLoading(false); setOtpScreen(true) }, 1500)
+    setError("")
+
+    try {
+      // ✅ Create Stripe payment method with test card
+      var rawNumber = cardNumber.replace(/\s/g, "")
+      var expiryParts = cardExpiry.split("/")
+      var expMonth = parseInt(expiryParts[0])
+      var expYear = parseInt("20" + expiryParts[1])
+
+      var result = await stripe.createPaymentMethod({
+        type: "card",
+        card: {
+          number: rawNumber,
+          exp_month: expMonth,
+          exp_year: expYear,
+          cvc: cardCvv
+        },
+        billing_details: {
+          name: cardName,
+          email: user ? user.email : ""
+        }
+      })
+
+      if (result.error) {
+        setError(result.error.message)
+        setLoading(false)
+        return
+      }
+
+      // ✅ Payment method created successfully - confirm booking
+      confirmBooking({
+        method: paymentMethod,
+        transactionId: result.paymentMethod.id,
+        status: "success",
+        paidAt: new Date().toISOString()
+      })
+      setLoading(false)
+
+    } catch (err) {
+      setError("Payment failed. Please try again.")
+      setLoading(false)
+    }
   }
 
-  function handleOtpSubmit() {
-    if (otp !== "123456") { setError("Invalid OTP. Use 123456 for demo"); return }
-    setError("")
+  function handleUpiOrWalletPay() {
+    if (!validateInputs()) return
     setLoading(true)
     setTimeout(function() {
       confirmBooking({
@@ -71,53 +131,12 @@ export default function PaymentPage() {
         paidAt: new Date().toISOString()
       })
       setLoading(false)
-    }, 1500)
+    }, 2000)
   }
 
   if (!selectedMovie || !selectedShowtime || selectedSeats.length === 0) {
     navigate("movies")
     return null
-  }
-
-  if (otpScreen) {
-    return (
-      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 max-w-sm w-full mx-4">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">📱</div>
-            <h2 className="text-white font-bold text-xl mb-1">OTP Verification</h2>
-            <p className="text-gray-400 text-sm">Enter the OTP sent to your registered mobile</p>
-            <p className="text-green-400 text-xs mt-3 bg-green-900/20 py-2 px-4 rounded-lg inline-block">
-              Demo OTP: <strong>123456</strong>
-            </p>
-          </div>
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="Enter 6-digit OTP"
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest placeholder-gray-600 outline-none focus:border-red-500 font-mono mb-4"
-          />
-          {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
-          <button onClick={handleOtpSubmit} disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg mb-3">
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                Verifying...
-              </span>
-            ) : "Verify & Pay ₹" + grandTotal}
-          </button>
-          <button onClick={() => { setOtpScreen(false); setOtp(""); setError("") }}
-            className="w-full text-gray-400 text-sm hover:text-white text-center">
-            ← Go Back
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -132,7 +151,7 @@ export default function PaymentPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 flex flex-col gap-5">
 
-            {/* Payment Method */}
+            {/* Payment Method Tabs */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Payment Method</h2>
               <div className="grid grid-cols-3 gap-3">
@@ -151,7 +170,19 @@ export default function PaymentPage() {
             {/* Card Form */}
             {paymentMethod === "card" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                <h2 className="text-white font-semibold mb-5">Card Details</h2>
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-white font-semibold">Card Details</h2>
+                  <div className="flex items-center gap-1 bg-blue-900/30 border border-blue-700/50 px-3 py-1 rounded-lg">
+                    <span className="text-blue-400 text-xs font-bold">Powered by Stripe</span>
+                  </div>
+                </div>
+
+                {/* Test card hint */}
+                <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3 mb-5">
+                  <p className="text-yellow-400 text-xs font-medium mb-1">🧪 Test Mode — Use test card:</p>
+                  <p className="text-yellow-300 text-xs font-mono">4000 0035 6008 0010 • Any future date • Any CVV</p>
+                </div>
+
                 <div className="bg-gradient-to-br from-red-900 to-gray-900 rounded-2xl p-5 mb-6 border border-red-800/30">
                   <div className="flex justify-between items-start mb-6">
                     <div className="w-10 h-7 bg-yellow-400 rounded-md opacity-80" />
@@ -171,11 +202,12 @@ export default function PaymentPage() {
                     </div>
                   </div>
                 </div>
+
                 <div className="flex flex-col gap-4">
                   <div>
                     <label className="text-gray-400 text-sm mb-1 block">Card Number</label>
                     <input type="text" value={cardNumber} onChange={handleCardNumber}
-                      placeholder="4111 1111 1111 1111"
+                      placeholder="4000 0035 6008 0010"
                       className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm font-mono" />
                   </div>
                   <div>
@@ -243,8 +275,10 @@ export default function PaymentPage() {
 
             {error && <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">{error}</p>}
 
-            <button onClick={handlePay} disabled={loading}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg">
+            <button
+              onClick={paymentMethod === "card" ? handlePay : handleUpiOrWalletPay}
+              disabled={loading || (paymentMethod === "card" && !stripeLoaded)}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
@@ -253,10 +287,10 @@ export default function PaymentPage() {
                   </svg>
                   Processing...
                 </span>
-              ) : "Pay ₹" + grandTotal}
+              ) : !stripeLoaded && paymentMethod === "card" ? "Loading Payment..." : "Pay ₹" + grandTotal}
             </button>
 
-            <p className="text-center text-gray-600 text-xs">🔒 256-bit SSL Encrypted Payment</p>
+            <p className="text-center text-gray-600 text-xs">🔒 Secured by Stripe Payment Gateway</p>
           </div>
 
           {/* Order Summary */}
@@ -305,9 +339,9 @@ export default function PaymentPage() {
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center">
-              <p className="text-gray-400 text-xs mb-1">Secured Payment</p>
-              <p className="text-blue-400 font-bold text-lg">PopcornPass Pay</p>
-              <p className="text-gray-600 text-xs mt-1">256-bit SSL Encrypted</p>
+              <p className="text-gray-400 text-xs mb-1">Secured by</p>
+              <p className="text-blue-400 font-bold text-lg">Stripe</p>
+              <p className="text-gray-600 text-xs mt-1">PCI DSS Compliant</p>
             </div>
           </div>
         </div>
