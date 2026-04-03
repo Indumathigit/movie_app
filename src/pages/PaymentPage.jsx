@@ -44,17 +44,18 @@ export default function PaymentPage() {
 
     var elements = stripeRef.current.elements()
     var card = elements.create("card", {
-      style: {
-        base: {
-          color: "#ffffff",
-          fontSize: "16px",
-          fontFamily: "Arial, sans-serif",
-          "::placeholder": { color: "#6b7280" }
-        },
-        invalid: { color: "#f87171" }
-      }
-    })
-    card.mount(cardMountRef.current)
+  hidePostalCode: true,
+  style: {
+    base: {
+      color: "#ffffff",
+      fontSize: "16px",
+      fontFamily: "Arial, sans-serif",
+      "::placeholder": { color: "#6b7280" }
+    },
+    invalid: { color: "#f87171" }
+  }
+})
+card.mount(cardMountRef.current)
     cardElementRef.current = card
 
     card.on("change", function(e) {
@@ -171,7 +172,7 @@ export default function PaymentPage() {
 
                 <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3 mb-5">
                   <p className="text-yellow-400 text-xs font-medium mb-1">🧪 Test Mode — Use test card:</p>
-                  <p className="text-yellow-300 text-xs font-mono">4000 0035 6008 0010 • Any future date • Any CVV</p>
+                  <p className="text-yellow-300 text-xs font-mono">4242 4242 4242 4242 • Any future date • Any CVV</p>
                 </div>
 
                 {!stripeReady ? (
