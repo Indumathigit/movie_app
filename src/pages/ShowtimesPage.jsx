@@ -127,11 +127,13 @@ export default function ShowtimesPage() {
   }
 
   // ✅ Calculate real available seats
-  function getAvailableSeats(show) {
-    var booked = bookedCountMap[show.id] || 0
-    var available = show.availableSeats - booked
-    return available < 0 ? 0 : available
-  }
+ function getAvailableSeats(show) {
+  var hardcodedReserved = 5 // matches reservedSeats array length in mockData
+  var booked = bookedCountMap[show.id] || 0
+  var available = show.availableSeats - hardcodedReserved - booked
+  return available < 0 ? 0 : available
+}
+
 
   if (!selectedMovie) {
     navigate("movies")

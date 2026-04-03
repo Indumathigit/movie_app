@@ -206,8 +206,7 @@ export function generateSeats(showtimeId) {
   var rows = ["A", "B", "C", "D", "E", "F", "G", "H"]
   var seatsPerRow = 12
   var seats = []
-  var reservedSeats = ["A3", "A4", "B7", "C2", "C3", "D5", "D6", "D7", "E1", "E12", "F4", "F5", "G8", "G9", "H2", "H11"]
-
+var reservedSeats = ["A3", "A4", "B7", "C2", "C3"]
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i]
     for (var j = 1; j <= seatsPerRow; j++) {
