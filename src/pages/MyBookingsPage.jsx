@@ -29,6 +29,19 @@ export default function MyBookingsPage() {
     return ids
   }
 
+  // check if show date has passed
+  function isPastBooking(booking) {
+    var showDate = new Date(booking.showtime.date + "T00:00:00")
+    var today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return showDate < today
+  }
+
+  // check if booking is cancelled
+  function isCancelled(booking) {
+    return booking.status === "cancelled"
+  }
+
   if (!user) {
     navigate("home")
     return null
@@ -38,7 +51,6 @@ export default function MyBookingsPage() {
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {/* page header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">My Bookings</h1>
@@ -54,17 +66,18 @@ export default function MyBookingsPage() {
           </button>
         </div>
 
-        {/* bookings list */}
         {bookings.length > 0 ? (
           <div className="flex flex-col gap-5">
             {bookings.map(function (booking) {
               var seats = getSeats(booking)
+              var past = isPastBooking(booking)
+              var cancelled = isCancelled(booking)
+
               return (
                 <div
                   key={booking.id}
                   className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
                 >
-                  {/* top section */}
                   <div className="flex gap-4 p-5">
                     <img
                       src={booking.movie.poster}
@@ -76,40 +89,47 @@ export default function MyBookingsPage() {
                         <h3 className="text-white font-bold text-lg truncate">
                           {booking.movie.title}
                         </h3>
-                        <span className="bg-green-900/40 border border-green-700/50 text-green-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
-                          Confirmed
-                        </span>
+
+                        {/* status badge */}
+                        {cancelled ? (
+                          <span className="bg-red-900/40 border border-red-700/50 text-red-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
+                            Cancelled
+                          </span>
+                        ) : past ? (
+                          <span className="bg-gray-800 border border-gray-700 text-gray-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="bg-green-900/40 border border-green-700/50 text-green-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
+                            Confirmed
+                          </span>
+                        )}
                       </div>
+
                       <p className="text-gray-400 text-sm mb-3">
                         {booking.movie.genre.join(", ")} • {booking.showtime.format}
                       </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-  <p className="text-gray-500 text-xs">Movie Date</p>
-  <p className="text-white text-sm font-medium">
-    {booking.showtime.date
-      ? new Date(booking.showtime.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-      : formatDate(booking.bookedAt)}
-  </p>
-</div>
 
-<div>
-                          <p className="text-gray-500 text-xs">Time</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-gray-500 text-xs">Movie Date</p>
                           <p className="text-white text-sm font-medium">
-                            {booking.showtime.time}
+                            {booking.showtime.date
+                              ? new Date(booking.showtime.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                              : formatDate(booking.bookedAt)}
                           </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Time</p>
+                          <p className="text-white text-sm font-medium">{booking.showtime.time}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 text-xs">Screen</p>
-                          <p className="text-white text-sm font-medium">
-                            {booking.showtime.screen}
-                          </p>
+                          <p className="text-white text-sm font-medium">{booking.showtime.screen}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 text-xs">Amount Paid</p>
-                          <p className="text-green-400 text-sm font-bold">
-                            ₹{getGrandTotal(booking)}
-                          </p>
+                          <p className="text-green-400 text-sm font-bold">₹{getGrandTotal(booking)}</p>
                         </div>
                       </div>
                     </div>
@@ -123,29 +143,46 @@ export default function MyBookingsPage() {
                         return (
                           <span
                             key={seatId}
-                            className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-1 rounded-lg"
+                            className={`text-xs px-2 py-1 rounded-lg border ${
+                              cancelled
+                                ? "bg-gray-800 border-gray-700 text-gray-500 line-through"
+                                : "bg-red-600/20 border-red-600/40 text-red-400"
+                            }`}
                           >
                             {seatId}
                           </span>
                         )
                       })}
                     </div>
+
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-600 text-xs font-mono">
-                        {booking.id}
-                      </span>
-                      <button
-                        onClick={() => window.print()}
-                        className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg"
-                      >
-                        🖨️ Print
-                      </button>
-                      <button
-                        onClick={() => setCancelConfirmId(booking.id)}
-                        className="text-xs bg-red-900/30 hover:bg-red-900/50 border border-red-800/50 text-red-400 px-3 py-1.5 rounded-lg"
-                      >
-                        Cancel
-                      </button>
+                      <span className="text-gray-600 text-xs font-mono">{booking.id}</span>
+
+                      {!cancelled && (
+                        <button
+                          onClick={() => window.print()}
+                          className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg"
+                        >
+                          🖨️ Print
+                        </button>
+                      )}
+
+                      {/* only show cancel if not cancelled and not past */}
+                      {!cancelled && !past && (
+                        <button
+                          onClick={() => setCancelConfirmId(booking.id)}
+                          className="text-xs bg-red-900/30 hover:bg-red-900/50 border border-red-800/50 text-red-400 px-3 py-1.5 rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                      )}
+
+                      {/* past booking label */}
+                      {past && !cancelled && (
+                        <span className="text-xs text-gray-600 px-3 py-1.5">
+                          Cannot cancel past booking
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -180,9 +217,7 @@ export default function MyBookingsPage() {
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="text-6xl mb-4">🎟️</div>
             <h3 className="text-white text-xl font-bold mb-2">No bookings yet</h3>
-            <p className="text-gray-400 text-sm mb-6">
-              You have not booked any tickets yet
-            </p>
+            <p className="text-gray-400 text-sm mb-6">You have not booked any tickets yet</p>
             <button
               onClick={() => navigate("movies")}
               className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-medium"

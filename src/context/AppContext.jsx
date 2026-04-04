@@ -9,14 +9,12 @@ export function useApp() {
 
 export function AppProvider({ children }) {
 
-  // load user from localStorage
   var savedUser = null
   try {
     var u = localStorage.getItem("popcornpass_user")
     if (u) savedUser = JSON.parse(u)
   } catch (e) { }
 
-  // load bookings from localStorage
   var savedBookings = []
   try {
     var b = localStorage.getItem("popcornpass_bookings")
@@ -26,7 +24,7 @@ export function AppProvider({ children }) {
   var [currentPage, setCurrentPage] = useState("home")
   var [selectedMovie, setSelectedMovie] = useState(null)
   var [selectedShowtime, setSelectedShowtime] = useState(null)
- var [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
+  var [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
   var [selectedSeats, setSelectedSeats] = useState([])
   var [user, setUser] = useState(savedUser)
   var [showAuthModal, setShowAuthModal] = useState(false)
@@ -35,24 +33,23 @@ export function AppProvider({ children }) {
   var [searchQuery, setSearchQuery] = useState("")
   var [selectedGenre, setSelectedGenre] = useState("All")
 
- useEffect(function () {
-  if (savedUser && savedUser.email) {
-    getUserBookings(savedUser.email)
-      .then(function (res) {
-        if (res && res.success && res.data && res.data.length > 0) {
-          // normalize backend bookings to have id field
-          var normalized = res.data.map(function(b) {
-            return Object.assign({}, b, { id: b.bookingId || b._id })
-          })
-          setBookings(normalized)
-          localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
-        }
-      })
-      .catch(function (err) {
-        console.log("Could not refresh bookings on load:", err)
-      })
-  }
-}, [])
+  useEffect(function () {
+    if (savedUser && savedUser.email) {
+      getUserBookings(savedUser.email)
+        .then(function (res) {
+          if (res && res.success && res.data && res.data.length > 0) {
+            var normalized = res.data.map(function (b) {
+              return Object.assign({}, b, { id: b.bookingId || b._id })
+            })
+            setBookings(normalized)
+            localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
+          }
+        })
+        .catch(function (err) {
+          console.log("Could not refresh bookings on load:", err)
+        })
+    }
+  }, [])
 
   function navigate(page) {
     setCurrentPage(page)
@@ -119,69 +116,60 @@ export function AppProvider({ children }) {
     }
     navigate("payment")
   }
-function confirmBooking(paymentDetails) {
-  var newBooking = {
-    id: "BK" + Date.now(),
-    bookingId: "BK" + Date.now(),
-    movie: selectedMovie,
-    showtime: selectedShowtime,
-    seats: selectedSeats,
-    totalAmount: calculateTotal(),
-    paymentDetails: paymentDetails,
-    bookedAt: new Date().toISOString(),
-    user: user,
-    status: "confirmed"
-  }
 
-  // save to backend
-  createBooking(newBooking)
-    .then(function (res) {
-      if (res && res.success) {
-        console.log("Booking saved to database!")
-      }
-    })
+  function confirmBooking(paymentDetails) {
+    var newBooking = {
+      id: "BK" + Date.now(),
+      bookingId: "BK" + Date.now(),
+      movie: selectedMovie,
+      showtime: selectedShowtime,
+      seats: selectedSeats,
+      totalAmount: calculateTotal(),
+      paymentDetails: paymentDetails,
+      bookedAt: new Date().toISOString(),
+      user: user,
+      status: "confirmed"
+    }
 
-  // save to localStorage and state immediately (don't wait for backend)
-  var updatedBookings = [...bookings, newBooking]
-  setBookings(updatedBookings)
-  localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
-
-  setCurrentBooking(newBooking)
-  setSelectedSeats([])
-  navigate("confirmation")
-}
-
-function login(userData) {
-  // ✅ Clear previous user's bookings first
-  setBookings([])
-  localStorage.removeItem("popcornpass_bookings")
-
-  setUser(userData)
-  localStorage.setItem("popcornpass_user", JSON.stringify(userData))
-  setShowAuthModal(false)
-
-  if (userData && userData.email) {
-    getUserBookings(userData.email)
+    createBooking(newBooking)
       .then(function (res) {
-        if (res && res.success && res.data && res.data.length > 0) {
-          var normalized = res.data.map(function(b) {
-            return Object.assign({}, b, { id: b.bookingId || b._id })
-          })
-          setBookings(normalized)
-          localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
+        if (res && res.success) {
+          console.log("Booking saved to database!")
         }
       })
-      .catch(function (err) {
-        console.log("Could not fetch bookings after login:", err)
-      })
-  }
-}  
 
-function getBookingsByShowtime(date, time, screen) {
-  return fetch(BASE_URL + "/api/bookings/showtime?date=" + date + "&time=" + encodeURIComponent(time) + "&screen=" + encodeURIComponent(screen))
-    .then(function(res) { return res.json() })
-    .catch(function(err) { console.log("Error fetching showtime bookings:", err) })
-}
+    var updatedBookings = [...bookings, newBooking]
+    setBookings(updatedBookings)
+    localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
+    setCurrentBooking(newBooking)
+    setSelectedSeats([])
+    navigate("confirmation")
+  }
+
+  function login(userData) {
+    setBookings([])
+    localStorage.removeItem("popcornpass_bookings")
+    setUser(userData)
+    localStorage.setItem("popcornpass_user", JSON.stringify(userData))
+    setShowAuthModal(false)
+
+    if (userData && userData.email) {
+      getUserBookings(userData.email)
+        .then(function (res) {
+          if (res && res.success && res.data && res.data.length > 0) {
+            var normalized = res.data.map(function (b) {
+              return Object.assign({}, b, { id: b.bookingId || b._id })
+            })
+            setBookings(normalized)
+            localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
+          }
+        })
+        .catch(function (err) {
+          console.log("Could not fetch bookings after login:", err)
+        })
+    }
+  }
+
   function logout() {
     setUser(null)
     setBookings([])
@@ -190,6 +178,7 @@ function getBookingsByShowtime(date, time, screen) {
     navigate("home")
   }
 
+  // cancel booking — keeps booking in list with "cancelled" status
   function cancelBooking(bookingId) {
     cancelBookingApi(bookingId)
       .then(function (res) {
@@ -198,14 +187,17 @@ function getBookingsByShowtime(date, time, screen) {
         }
       })
 
-    var newBookings = []
+    var updatedBookings = []
     for (var i = 0; i < bookings.length; i++) {
-      if (bookings[i].id !== bookingId) {
-        newBookings.push(bookings[i])
+      if (bookings[i].id === bookingId) {
+        var cancelled = Object.assign({}, bookings[i], { status: "cancelled" })
+        updatedBookings.push(cancelled)
+      } else {
+        updatedBookings.push(bookings[i])
       }
     }
-    setBookings(newBookings)
-    localStorage.setItem("popcornpass_bookings", JSON.stringify(newBookings))
+    setBookings(updatedBookings)
+    localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
   }
 
   var value = {
