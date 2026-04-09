@@ -90,6 +90,7 @@ export default function PaymentPage() {
 
   setLoading(true)
   setError("")
+  setShowingStripeProcess(true)
 
   try {
     var intentRes = await fetch(BACKEND_URL + "/api/payments/create-intent", {
@@ -100,16 +101,13 @@ export default function PaymentPage() {
     var intentData = await intentRes.json()
 
     if (!intentData.success) {
+      setShowingStripeProcess(false)
       setError("Payment initialization failed. Try again.")
       setLoading(false)
       return
     }
 
-    // ✅ Show Stripe processing screen
-    setShowingStripeProcess(true)
-
-    // ✅ Add 30 second timeout
-    var paymentPromise = stripeRef.current.confirmCardPayment(intentData.clientSecret, {
+    var result = await stripeRef.current.confirmCardPayment(intentData.clientSecret, {
       payment_method: {
         card: cardElementRef.current,
         billing_details: {
@@ -118,14 +116,6 @@ export default function PaymentPage() {
         }
       }
     })
-
-    var timeoutPromise = new Promise(function(_, reject) {
-      setTimeout(function() {
-        reject(new Error("Payment timed out. Please try again."))
-      }, 30000)
-    })
-
-    var result = await Promise.race([paymentPromise, timeoutPromise])
 
     if (result.error) {
       setShowingStripeProcess(false)
@@ -146,7 +136,7 @@ export default function PaymentPage() {
 
   } catch (err) {
     setShowingStripeProcess(false)
-    setError(err.message || "Payment failed. Please try again.")
+    setError("Payment failed. Please try again.")
     setLoading(false)
   }
 }
@@ -176,30 +166,45 @@ export default function PaymentPage() {
 
   // ✅ Stripe Processing Screen - evaluator clearly sees Stripe gateway
   if (showingStripeProcess) {
-    return (
-      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
-        <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
-          <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-900">
-            <span className="text-white text-4xl font-bold">S</span>
-          </div>
-          <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
-          <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
-          <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
-          <p className="text-indigo-300 text-sm font-medium mb-6">₹{grandTotal}</p>
-          <div className="flex justify-center gap-2 mb-6">
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></div>
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "150ms"}}></div>
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "300ms"}}></div>
-          </div>
-          <div className="bg-indigo-900/30 border border-indigo-800/40 rounded-xl p-3">
-            <p className="text-gray-400 text-xs">🔒 PCI DSS Level 1 Certified</p>
-            <p className="text-gray-500 text-xs mt-1">256-bit SSL Encryption</p>
-          </div>
+  return (
+    <div className="bg-gray-950 min-h-screen flex items-center justify-center">
+      <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
+        <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-900">
+          <span className="text-white text-4xl font-bold">S</span>
         </div>
+        <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
+        <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
+        <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
+        <p className="text-indigo-300 text-sm font-medium mb-6">₹{grandTotal}</p>
+        <div className="flex justify-center gap-2 mb-6">
+          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></div>
+          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "150ms"}}></div>
+          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "300ms"}}></div>
+        </div>
+        <div className="bg-indigo-900/30 border border-indigo-800/40 rounded-xl p-3 mb-4">
+          <p className="text-gray-400 text-xs">🔒 PCI DSS Level 1 Certified</p>
+          <p className="text-gray-500 text-xs mt-1">256-bit SSL Encryption</p>
+        </div>
+        {/* ✅ Cancel button in case of hang */}
+        <button
+          onClick={() => {
+            setShowingStripeProcess(false)
+            setLoading(false)
+            setError("Payment cancelled. Please try again.")
+            // ✅ Remount card element to reset locked state
+            if (cardElementRef.current) {
+              cardElementRef.current.unmount()
+              cardElementRef.current = null
+              setCardComplete(false)
+            }
+          }}
+          className="text-gray-500 text-xs hover:text-gray-300 mt-2">
+          Cancel and try again
+        </button>
       </div>
-    )
-  }
-
+    </div>
+  )
+}
   return (
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
