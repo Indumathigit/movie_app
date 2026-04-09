@@ -108,8 +108,14 @@ export function AppProvider({ children }) {
     navigate("payment")
   }
 
-  function confirmBooking(paymentDetails) {
-    var newBooking = {
+function confirmBooking(paymentDetails) {
+  // ✅ Block if payment was not successful
+  if (!paymentDetails || paymentDetails.status !== "success") {
+    console.log("Payment not successful, booking blocked")
+    return
+  }
+
+  var newBooking = {
       id: "BK" + Date.now(),
       bookingId: "BK" + Date.now(),
       movie: selectedMovie,

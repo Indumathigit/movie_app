@@ -123,16 +123,18 @@ export default function PaymentPage() {
         return
       }
 
+       console.log("Card last4:", result.paymentMethod.card.last4)
+
       // ✅ Decline check
       var last4 = result.paymentMethod.card.last4
-      if (last4 === "0002") {
-        setTimeout(function() {
-          setProcessingScreen(false)
-          setError("❌ Your card was declined. Please try a different card.")
-          setLoading(false)
-        }, 2500)
-        return  // ✅ Stop — do NOT call confirmBooking
-      }
+     if (last4 === "0002") {
+  setTimeout(function() {
+    setProcessingScreen(false)
+    setError("❌ Your card was declined. Please try a different card.")
+    setLoading(false)
+  }, 2500)
+  return  // ✅ Never reaches confirmBooking
+}
 
       // ✅ Success
       setTimeout(function() {
