@@ -23,7 +23,6 @@ export default function PaymentPage() {
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
 
-  // ✅ Initialize Stripe ONCE on mount - never reinitialize
   useEffect(function() {
     if (stripeInitialized.current) return
     stripeInitialized.current = true
@@ -52,10 +51,7 @@ export default function PaymentPage() {
       card.mount(cardMountRef.current)
       cardElementRef.current = card
 
-      card.on("ready", function() {
-        setCardReady(true)
-      })
-
+      card.on("ready", function() { setCardReady(true) })
       card.on("change", function(e) {
         setError(e.error ? e.error.message : "")
         setCardComplete(e.complete)
@@ -75,17 +71,17 @@ export default function PaymentPage() {
       document.head.appendChild(script)
     }
 
-    // ✅ Cleanup on unmount
     return function() {
       if (cardElementRef.current) {
         try { cardElementRef.current.unmount() } catch(e) {}
         cardElementRef.current = null
       }
     }
-  }, []) // ✅ Empty deps - only runs once
+  }, [])
 
   function handleBack() { navigate("seats") }
 
+  // ✅ handlePay is its own function — closed properly
   function handlePay() {
     if (paymentMethod !== "card") {
       handleUpiOrWalletPay()
@@ -109,53 +105,54 @@ export default function PaymentPage() {
     setLoading(true)
     setProcessingScreen(true)
 
-    // ✅ Use ref directly - no state that could cause re-render issues
     var stripe = stripeRef.current
     var cardElement = cardElementRef.current
 
-      stripe.createPaymentMethod({
-  type: "card",
-  card: cardElement,
-  billing_details: {
-    name: user ? user.name : "Customer",
-    email: user ? user.email : ""
-  }
-}).then(function(result) {
-  if (result.error) {
-    setProcessingScreen(false)
-    setError(result.error.message)
-    setLoading(false)
-    return
-  }
+    stripe.createPaymentMethod({
+      type: "card",
+      card: cardElement,
+      billing_details: {
+        name: user ? user.name : "Customer",
+        email: user ? user.email : ""
+      }
+    }).then(function(result) {
+      if (result.error) {
+        setProcessingScreen(false)
+        setError(result.error.message)
+        setLoading(false)
+        return
+      }
 
-  // ✅ Check for declined test card using last4
-  var last4 = result.paymentMethod.card.last4
-  if (last4 === "0002") {
-    setTimeout(function() {
+      // ✅ Decline check
+      var last4 = result.paymentMethod.card.last4
+      if (last4 === "0002") {
+        setTimeout(function() {
+          setProcessingScreen(false)
+          setError("❌ Your card was declined. Please try a different card.")
+          setLoading(false)
+        }, 2500)
+        return  // ✅ Stop — do NOT call confirmBooking
+      }
+
+      // ✅ Success
+      setTimeout(function() {
+        confirmBooking({
+          method: "card",
+          transactionId: result.paymentMethod.id,
+          status: "success",
+          paidAt: new Date().toISOString()
+        })
+        setLoading(false)
+      }, 2500)
+
+    }).catch(function(err) {
       setProcessingScreen(false)
-      setError("❌ Your card was declined. Please try a different card.")
+      setError("Payment failed. Please try again.")
       setLoading(false)
-    }, 2500)
-    return
-  }
-
-  // ✅ Success - show processing screen for 2.5 seconds, then confirm
-  setTimeout(function() {
-    confirmBooking({
-      method: "card",
-      transactionId: result.paymentMethod.id,
-      status: "success",
-      paidAt: new Date().toISOString()
     })
-    setLoading(false)
-  }, 2500)
+  }  // ✅ handlePay closes here
 
-}).catch(function(err) {
-  setProcessingScreen(false)
-  setError("Payment failed. Please try again.")
-  setLoading(false)
-})
-
+  // ✅ handleUpiOrWalletPay is a separate function — outside handlePay
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
       setError("Enter a valid UPI ID like name@upi")
@@ -228,7 +225,7 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* ✅ Card section - always rendered, just hidden when not selected */}
+            {/* Card section - always rendered, just hidden when not selected */}
             <div className={paymentMethod === "card" ? "block" : "hidden"}>
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-4">
@@ -249,7 +246,6 @@ export default function PaymentPage() {
 
                 <div>
                   <label className="text-gray-400 text-sm mb-2 block">Card Information</label>
-                  {/* ✅ Always mounted - never conditionally rendered */}
                   <div ref={cardMountRef} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-4" />
                   <p className="text-gray-500 text-xs mt-2">
                     {cardReady ? "🔒 256-bit SSL encrypted by Stripe" : "⏳ Loading secure card field..."}
