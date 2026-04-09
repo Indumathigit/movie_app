@@ -9,120 +9,126 @@ export default function PaymentPage() {
   var [paymentMethod, setPaymentMethod] = useState("card")
   var [loading, setLoading] = useState(false)
   var [error, setError] = useState("")
-  var [stripeReady, setStripeReady] = useState(false)
   var [cardComplete, setCardComplete] = useState(false)
   var [cardReady, setCardReady] = useState(false)
   var [upiId, setUpiId] = useState("")
-  var [showingStripeProcess, setShowingStripeProcess] = useState(false)
+  var [processingScreen, setProcessingScreen] = useState(false)
 
   var stripeRef = useRef(null)
   var cardElementRef = useRef(null)
   var cardMountRef = useRef(null)
+  var stripeInitialized = useRef(false)
 
   var total = calculateTotal()
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
 
-  // Load Stripe.js
+  // ✅ Initialize Stripe ONCE on mount - never reinitialize
   useEffect(function() {
+    if (stripeInitialized.current) return
+    stripeInitialized.current = true
+
+    function initStripeElement() {
+      if (!cardMountRef.current) {
+        setTimeout(initStripeElement, 100)
+        return
+      }
+      if (cardElementRef.current) return
+
+      var elements = stripeRef.current.elements()
+      var card = elements.create("card", {
+        hidePostalCode: true,
+        style: {
+          base: {
+            color: "#ffffff",
+            fontSize: "16px",
+            fontFamily: "Arial, sans-serif",
+            "::placeholder": { color: "#6b7280" }
+          },
+          invalid: { color: "#f87171" }
+        }
+      })
+
+      card.mount(cardMountRef.current)
+      cardElementRef.current = card
+
+      card.on("ready", function() {
+        setCardReady(true)
+      })
+
+      card.on("change", function(e) {
+        setError(e.error ? e.error.message : "")
+        setCardComplete(e.complete)
+      })
+    }
+
     if (window.Stripe) {
       stripeRef.current = window.Stripe(STRIPE_KEY)
-      setStripeReady(true)
-      return
-    }
-    var script = document.createElement("script")
-    script.src = "https://js.stripe.com/v3/"
-    script.onload = function() {
-      stripeRef.current = window.Stripe(STRIPE_KEY)
-      setStripeReady(true)
-    }
-    document.head.appendChild(script)
-  }, [])
-
-  // Mount Stripe Card Element
-  useEffect(function() {
-    if (!stripeReady || paymentMethod !== "card") return
-    if (cardElementRef.current) return
-    if (!cardMountRef.current) return
-
-    var elements = stripeRef.current.elements()
-    var card = elements.create("card", {
-      hidePostalCode: true,
-      style: {
-        base: {
-          color: "#ffffff",
-          fontSize: "16px",
-          fontFamily: "Arial, sans-serif",
-          "::placeholder": { color: "#6b7280" }
-        },
-        invalid: { color: "#f87171" }
+      initStripeElement()
+    } else {
+      var script = document.createElement("script")
+      script.src = "https://js.stripe.com/v3/"
+      script.onload = function() {
+        stripeRef.current = window.Stripe(STRIPE_KEY)
+        initStripeElement()
       }
-    })
-
-    card.mount(cardMountRef.current)
-    cardElementRef.current = card
-
-    // ✅ Track when card is ready
-    card.on("ready", function() {
-      setCardReady(true)
-    })
-
-    card.on("change", function(e) {
-      setError(e.error ? e.error.message : "")
-      setCardComplete(e.complete)
-    })
-  }, [stripeReady, paymentMethod])
-
-  // Unmount when switching away
-  useEffect(function() {
-    if (paymentMethod !== "card" && cardElementRef.current) {
-      cardElementRef.current.unmount()
-      cardElementRef.current = null
-      setCardComplete(false)
-      setCardReady(false)
+      document.head.appendChild(script)
     }
-  }, [paymentMethod])
+
+    // ✅ Cleanup on unmount
+    return function() {
+      if (cardElementRef.current) {
+        try { cardElementRef.current.unmount() } catch(e) {}
+        cardElementRef.current = null
+      }
+    }
+  }, []) // ✅ Empty deps - only runs once
 
   function handleBack() { navigate("seats") }
 
-  async function handleCardPay() {
+  function handlePay() {
+    if (paymentMethod !== "card") {
+      handleUpiOrWalletPay()
+      return
+    }
+
     if (!stripeRef.current || !cardElementRef.current) {
       setError("Payment not ready. Please wait.")
       return
     }
     if (!cardReady) {
-      setError("Card field not ready. Please wait a moment.")
+      setError("Card field not ready. Please wait.")
       return
     }
     if (!cardComplete) {
-      setError("Please enter your complete card details.")
+      setError("Please enter complete card details.")
       return
     }
 
-    setLoading(true)
     setError("")
-    setShowingStripeProcess(true)
+    setLoading(true)
+    setProcessingScreen(true)
 
-    try {
-      var result = await stripeRef.current.createPaymentMethod({
-        type: "card",
-        card: cardElementRef.current,
-        billing_details: {
-          name: user ? user.name : "Customer",
-          email: user ? user.email : ""
-        }
-      })
+    // ✅ Use ref directly - no state that could cause re-render issues
+    var stripe = stripeRef.current
+    var cardElement = cardElementRef.current
 
-      console.log("Stripe result:", JSON.stringify(result))
-
+    stripe.createPaymentMethod({
+      type: "card",
+      card: cardElement,
+      billing_details: {
+        name: user ? user.name : "Customer",
+        email: user ? user.email : ""
+      }
+    }).then(function(result) {
       if (result.error) {
-        setShowingStripeProcess(false)
+        setProcessingScreen(false)
         setError(result.error.message)
         setLoading(false)
         return
       }
 
-      // ✅ Payment method created successfully - confirm booking
+      // ✅ Success - confirm booking
       confirmBooking({
         method: "card",
         transactionId: result.paymentMethod.id,
@@ -131,12 +137,11 @@ export default function PaymentPage() {
       })
       setLoading(false)
 
-    } catch (err) {
-      console.log("Stripe catch error:", err)
-      setShowingStripeProcess(false)
-      setError(err.message || "Payment failed. Please try again.")
+    }).catch(function(err) {
+      setProcessingScreen(false)
+      setError("Payment failed. Please try again.")
       setLoading(false)
-    }
+    })
   }
 
   function handleUpiOrWalletPay() {
@@ -162,50 +167,30 @@ export default function PaymentPage() {
     return null
   }
 
-  // ✅ Stripe Processing Screen
-  if (showingStripeProcess) {
-    return (
-      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
-        <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
-          <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-900">
-            <span className="text-white text-4xl font-bold">S</span>
-          </div>
-          <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
-          <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
-          <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
-          <p className="text-indigo-300 text-sm font-medium mb-6">₹{grandTotal}</p>
-          <div className="flex justify-center gap-2 mb-6">
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></div>
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "150ms"}}></div>
-            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "300ms"}}></div>
-          </div>
-          <div className="bg-indigo-900/30 border border-indigo-800/40 rounded-xl p-3 mb-4">
-            <p className="text-gray-400 text-xs">🔒 PCI DSS Level 1 Certified</p>
-            <p className="text-gray-500 text-xs mt-1">256-bit SSL Encryption</p>
-          </div>
-          <button
-            onClick={() => {
-              setShowingStripeProcess(false)
-              setLoading(false)
-              setError("Payment cancelled. Please try again.")
-              if (cardElementRef.current) {
-                cardElementRef.current.unmount()
-                cardElementRef.current = null
-                setCardComplete(false)
-                setCardReady(false)
-              }
-            }}
-            className="text-gray-500 text-xs hover:text-gray-300 mt-2">
-            Cancel and try again
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Stripe Processing Overlay */}
+        {processingScreen && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+            <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
+              <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <span className="text-white text-4xl font-bold">S</span>
+              </div>
+              <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
+              <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
+              <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
+              <p className="text-indigo-300 font-medium mb-6">₹{grandTotal}</p>
+              <div className="flex justify-center gap-2 mb-4">
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></div>
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"150ms"}}></div>
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"300ms"}}></div>
+              </div>
+              <p className="text-gray-500 text-xs">🔒 PCI DSS Level 1 Certified</p>
+            </div>
+          </div>
+        )}
 
         <button onClick={handleBack} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm">
           ← Back to Seat Selection
@@ -231,8 +216,8 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* Stripe Card */}
-            {paymentMethod === "card" && (
+            {/* ✅ Card section - always rendered, just hidden when not selected */}
+            <div className={paymentMethod === "card" ? "block" : "hidden"}>
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-white font-semibold">Card Details</h2>
@@ -250,28 +235,16 @@ export default function PaymentPage() {
                   <p className="text-red-400 text-xs mt-1">❌ Decline test: 4000 0000 0000 0002</p>
                 </div>
 
-                {!stripeReady ? (
-                  <div className="flex items-center justify-center py-6 gap-2">
-                    <svg className="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    <p className="text-gray-400 text-sm">Loading Stripe...</p>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-gray-400 text-sm mb-2 block">Card Information</label>
-                    <div ref={cardMountRef} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-4" />
-                    {!cardReady && (
-                      <p className="text-yellow-500 text-xs mt-2">⏳ Loading card field...</p>
-                    )}
-                    {cardReady && (
-                      <p className="text-gray-500 text-xs mt-2">🔒 256-bit SSL encrypted by Stripe</p>
-                    )}
-                  </div>
-                )}
+                <div>
+                  <label className="text-gray-400 text-sm mb-2 block">Card Information</label>
+                  {/* ✅ Always mounted - never conditionally rendered */}
+                  <div ref={cardMountRef} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-4" />
+                  <p className="text-gray-500 text-xs mt-2">
+                    {cardReady ? "🔒 256-bit SSL encrypted by Stripe" : "⏳ Loading secure card field..."}
+                  </p>
+                </div>
               </div>
-            )}
+            </div>
 
             {/* UPI */}
             {paymentMethod === "upi" && (
@@ -315,14 +288,14 @@ export default function PaymentPage() {
             {error && <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">{error}</p>}
 
             <button
-              onClick={paymentMethod === "card" ? handleCardPay : handleUpiOrWalletPay}
-              disabled={loading || (paymentMethod === "card" && (!stripeReady || !cardReady || !cardComplete))}
+              onClick={handlePay}
+              disabled={loading || (paymentMethod === "card" && (!cardReady || !cardComplete))}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
                   Processing...
                 </span>
@@ -379,7 +352,6 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* Stripe Badge */}
             <div className="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 text-center">
               <p className="text-gray-400 text-xs mb-2">Payment Gateway</p>
               <div className="flex items-center justify-center gap-2 mb-1">
