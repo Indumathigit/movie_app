@@ -114,35 +114,47 @@ export default function PaymentPage() {
     var cardElement = cardElementRef.current
 
     stripe.createPaymentMethod({
-      type: "card",
-      card: cardElement,
-      billing_details: {
-        name: user ? user.name : "Customer",
-        email: user ? user.email : ""
-      }
-    }).then(function(result) {
-      if (result.error) {
-        setProcessingScreen(false)
-        setError(result.error.message)
-        setLoading(false)
-        return
-      }
-
-      // ✅ Success - confirm booking
-      confirmBooking({
-        method: "card",
-        transactionId: result.paymentMethod.id,
-        status: "success",
-        paidAt: new Date().toISOString()
-      })
-      setLoading(false)
-
-    }).catch(function(err) {
-      setProcessingScreen(false)
-      setError("Payment failed. Please try again.")
-      setLoading(false)
-    })
+  type: "card",
+  card: cardElement,
+  billing_details: {
+    name: user ? user.name : "Customer",
+    email: user ? user.email : ""
   }
+}).then(function(result) {
+  if (result.error) {
+    setProcessingScreen(false)
+    setError(result.error.message)
+    setLoading(false)
+    return
+  }
+
+  // ✅ Check for declined test card using last4
+  var last4 = result.paymentMethod.card.last4
+  if (last4 === "0002") {
+    setTimeout(function() {
+      setProcessingScreen(false)
+      setError("❌ Your card was declined. Please try a different card.")
+      setLoading(false)
+    }, 2500)
+    return
+  }
+
+  // ✅ Success - show processing screen for 2.5 seconds, then confirm
+  setTimeout(function() {
+    confirmBooking({
+      method: "card",
+      transactionId: result.paymentMethod.id,
+      status: "success",
+      paidAt: new Date().toISOString()
+    })
+    setLoading(false)
+  }, 2500)
+
+}).catch(function(err) {
+  setProcessingScreen(false)
+  setError("Payment failed. Please try again.")
+  setLoading(false)
+})
 
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
