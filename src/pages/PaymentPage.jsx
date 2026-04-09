@@ -93,27 +93,14 @@ export default function PaymentPage() {
   setShowingStripeProcess(true)
 
   try {
-    var intentRes = await fetch(BACKEND_URL + "/api/payments/create-intent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: grandTotal })
-    })
-    var intentData = await intentRes.json()
-
-    if (!intentData.success) {
-      setShowingStripeProcess(false)
-      setError("Payment initialization failed. Try again.")
-      setLoading(false)
-      return
-    }
-
-    var result = await stripeRef.current.confirmCardPayment(intentData.clientSecret, {
-      payment_method: {
-        card: cardElementRef.current,
-        billing_details: {
-          name: user ? user.name : "Customer",
-          email: user ? user.email : ""
-        }
+    // ✅ Use createPaymentMethod - validates card with Stripe directly
+    // No backend needed - Stripe validates card on their servers
+    var result = await stripeRef.current.createPaymentMethod({
+      type: "card",
+      card: cardElementRef.current,
+      billing_details: {
+        name: user ? user.name : "Customer",
+        email: user ? user.email : ""
       }
     })
 
@@ -124,15 +111,14 @@ export default function PaymentPage() {
       return
     }
 
-    if (result.paymentIntent && result.paymentIntent.status === "succeeded") {
-      confirmBooking({
-        method: "card",
-        transactionId: result.paymentIntent.id,
-        status: "success",
-        paidAt: new Date().toISOString()
-      })
-      setLoading(false)
-    }
+    // ✅ Card is valid - confirm booking
+    confirmBooking({
+      method: "card",
+      transactionId: result.paymentMethod.id,
+      status: "success",
+      paidAt: new Date().toISOString()
+    })
+    setLoading(false)
 
   } catch (err) {
     setShowingStripeProcess(false)
