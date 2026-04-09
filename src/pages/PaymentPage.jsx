@@ -243,7 +243,7 @@ export default function PaymentPage() {
 
                 <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-3 mb-4">
                   <p className="text-green-400 text-xs font-medium mb-1">✅ Test Mode — Use Stripe test card:</p>
-                  <p className="text-green-300 text-xs font-mono">4242 4242 4242 4242 • Any future date • Any CVV</p>
+                  <p className="text-green-300 text-xs font-mono">4111 1111 1111 1111 • Any future date • Any CVV</p>
                   <p className="text-red-400 text-xs mt-1">❌ Decline test: 4000 0000 0000 0002</p>
                 </div>
 
