@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react"
 import { useApp } from "../context/AppContext"
 
 const STRIPE_KEY = "pk_test_51TI0ebFwCY90Xpbs2zvWCuSOQ483oi4lDLsDYUK8jN3dP7hoXDxdaD25HXKALVA7PiL04rJ2feVrAXrep4HbvRuA00HKtnwNRj"
-const BACKEND_URL = "https://movie-booking-backend-k3uc.onrender.com"
 
 export default function PaymentPage() {
   var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
@@ -12,6 +11,7 @@ export default function PaymentPage() {
   var [error, setError] = useState("")
   var [stripeReady, setStripeReady] = useState(false)
   var [cardComplete, setCardComplete] = useState(false)
+  var [cardReady, setCardReady] = useState(false)
   var [upiId, setUpiId] = useState("")
   var [showingStripeProcess, setShowingStripeProcess] = useState(false)
 
@@ -58,12 +58,18 @@ export default function PaymentPage() {
         invalid: { color: "#f87171" }
       }
     })
+
     card.mount(cardMountRef.current)
     cardElementRef.current = card
 
+    // ✅ Track when card is ready
+    card.on("ready", function() {
+      setCardReady(true)
+    })
+
     card.on("change", function(e) {
       setError(e.error ? e.error.message : "")
-      setCardComplete(e.complete) // ✅ track if card fully filled
+      setCardComplete(e.complete)
     })
   }, [stripeReady, paymentMethod])
 
@@ -73,59 +79,65 @@ export default function PaymentPage() {
       cardElementRef.current.unmount()
       cardElementRef.current = null
       setCardComplete(false)
+      setCardReady(false)
     }
   }, [paymentMethod])
 
   function handleBack() { navigate("seats") }
-async function handleCardPay() {
-  if (!stripeRef.current || !cardElementRef.current) {
-    setError("Payment not ready. Please wait.")
-    return
-  }
-  if (!cardComplete) {
-    setError("Please enter your complete card details.")
-    return
-  }
 
-  setLoading(true)
-  setError("")
-  setShowingStripeProcess(true)
-
-  try {
-    var result = await stripeRef.current.createPaymentMethod({
-      type: "card",
-      card: cardElementRef.current,
-      billing_details: {
-        name: user ? user.name : "Customer",
-        email: user ? user.email : ""
-      }
-    })
-
-    // ✅ Log exact result to console
-    console.log("Stripe result:", JSON.stringify(result))
-
-    if (result.error) {
-      setShowingStripeProcess(false)
-      setError(result.error.message)
-      setLoading(false)
+  async function handleCardPay() {
+    if (!stripeRef.current || !cardElementRef.current) {
+      setError("Payment not ready. Please wait.")
+      return
+    }
+    if (!cardReady) {
+      setError("Card field not ready. Please wait a moment.")
+      return
+    }
+    if (!cardComplete) {
+      setError("Please enter your complete card details.")
       return
     }
 
-    confirmBooking({
-      method: "card",
-      transactionId: result.paymentMethod.id,
-      status: "success",
-      paidAt: new Date().toISOString()
-    })
-    setLoading(false)
+    setLoading(true)
+    setError("")
+    setShowingStripeProcess(true)
 
-  } catch (err) {
-    console.log("Stripe error:", err)
-    setShowingStripeProcess(false)
-    setError(err.message || "Payment failed.")
-    setLoading(false)
+    try {
+      var result = await stripeRef.current.createPaymentMethod({
+        type: "card",
+        card: cardElementRef.current,
+        billing_details: {
+          name: user ? user.name : "Customer",
+          email: user ? user.email : ""
+        }
+      })
+
+      console.log("Stripe result:", JSON.stringify(result))
+
+      if (result.error) {
+        setShowingStripeProcess(false)
+        setError(result.error.message)
+        setLoading(false)
+        return
+      }
+
+      // ✅ Payment method created successfully - confirm booking
+      confirmBooking({
+        method: "card",
+        transactionId: result.paymentMethod.id,
+        status: "success",
+        paidAt: new Date().toISOString()
+      })
+      setLoading(false)
+
+    } catch (err) {
+      console.log("Stripe catch error:", err)
+      setShowingStripeProcess(false)
+      setError(err.message || "Payment failed. Please try again.")
+      setLoading(false)
+    }
   }
-}
 
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
@@ -150,47 +162,47 @@ async function handleCardPay() {
     return null
   }
 
-  // ✅ Stripe Processing Screen - evaluator clearly sees Stripe gateway
+  // ✅ Stripe Processing Screen
   if (showingStripeProcess) {
-  return (
-    <div className="bg-gray-950 min-h-screen flex items-center justify-center">
-      <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
-        <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-900">
-          <span className="text-white text-4xl font-bold">S</span>
+    return (
+      <div className="bg-gray-950 min-h-screen flex items-center justify-center">
+        <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
+          <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-900">
+            <span className="text-white text-4xl font-bold">S</span>
+          </div>
+          <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
+          <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
+          <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
+          <p className="text-indigo-300 text-sm font-medium mb-6">₹{grandTotal}</p>
+          <div className="flex justify-center gap-2 mb-6">
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></div>
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "150ms"}}></div>
+            <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "300ms"}}></div>
+          </div>
+          <div className="bg-indigo-900/30 border border-indigo-800/40 rounded-xl p-3 mb-4">
+            <p className="text-gray-400 text-xs">🔒 PCI DSS Level 1 Certified</p>
+            <p className="text-gray-500 text-xs mt-1">256-bit SSL Encryption</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowingStripeProcess(false)
+              setLoading(false)
+              setError("Payment cancelled. Please try again.")
+              if (cardElementRef.current) {
+                cardElementRef.current.unmount()
+                cardElementRef.current = null
+                setCardComplete(false)
+                setCardReady(false)
+              }
+            }}
+            className="text-gray-500 text-xs hover:text-gray-300 mt-2">
+            Cancel and try again
+          </button>
         </div>
-        <h2 className="text-white font-bold text-2xl mb-1">Processing Payment</h2>
-        <p className="text-indigo-400 font-bold text-xl mb-1">Stripe</p>
-        <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
-        <p className="text-indigo-300 text-sm font-medium mb-6">₹{grandTotal}</p>
-        <div className="flex justify-center gap-2 mb-6">
-          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></div>
-          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "150ms"}}></div>
-          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "300ms"}}></div>
-        </div>
-        <div className="bg-indigo-900/30 border border-indigo-800/40 rounded-xl p-3 mb-4">
-          <p className="text-gray-400 text-xs">🔒 PCI DSS Level 1 Certified</p>
-          <p className="text-gray-500 text-xs mt-1">256-bit SSL Encryption</p>
-        </div>
-        {/* ✅ Cancel button in case of hang */}
-        <button
-          onClick={() => {
-            setShowingStripeProcess(false)
-            setLoading(false)
-            setError("Payment cancelled. Please try again.")
-            // ✅ Remount card element to reset locked state
-            if (cardElementRef.current) {
-              cardElementRef.current.unmount()
-              cardElementRef.current = null
-              setCardComplete(false)
-            }
-          }}
-          className="text-gray-500 text-xs hover:text-gray-300 mt-2">
-          Cancel and try again
-        </button>
       </div>
-    </div>
-  )
-}
+    )
+  }
+
   return (
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -250,7 +262,12 @@ async function handleCardPay() {
                   <div>
                     <label className="text-gray-400 text-sm mb-2 block">Card Information</label>
                     <div ref={cardMountRef} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-4" />
-                    <p className="text-gray-500 text-xs mt-2">🔒 256-bit SSL encrypted by Stripe</p>
+                    {!cardReady && (
+                      <p className="text-yellow-500 text-xs mt-2">⏳ Loading card field...</p>
+                    )}
+                    {cardReady && (
+                      <p className="text-gray-500 text-xs mt-2">🔒 256-bit SSL encrypted by Stripe</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -299,7 +316,7 @@ async function handleCardPay() {
 
             <button
               onClick={paymentMethod === "card" ? handleCardPay : handleUpiOrWalletPay}
-              disabled={loading || (paymentMethod === "card" && (!stripeReady || !cardComplete))}
+              disabled={loading || (paymentMethod === "card" && (!stripeReady || !cardReady || !cardComplete))}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -309,7 +326,7 @@ async function handleCardPay() {
                   </svg>
                   Processing...
                 </span>
-              ) : paymentMethod === "card" && !cardComplete
+              ) : paymentMethod === "card" && (!cardReady || !cardComplete)
                 ? "Enter card details to pay"
                 : "Pay ₹" + grandTotal + " via Stripe"}
             </button>
