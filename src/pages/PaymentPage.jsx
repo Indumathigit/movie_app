@@ -81,80 +81,79 @@ export default function PaymentPage() {
 
   function handleBack() { navigate("seats") }
 
-  // ✅ handlePay is its own function — closed properly
   function handlePay() {
-    if (paymentMethod !== "card") {
-      handleUpiOrWalletPay()
+  if (paymentMethod !== "card") {
+    handleUpiOrWalletPay()
+    return
+  }
+
+  if (!stripeRef.current || !cardElementRef.current) {
+    setError("Payment not ready. Please wait.")
+    return
+  }
+  if (!cardReady) {
+    setError("Card field not ready. Please wait.")
+    return
+  }
+  if (!cardComplete) {
+    setError("Please enter complete card details.")
+    return
+  }
+
+  setError("")
+  setLoading(true)
+  setProcessingScreen(true)
+
+  var stripe = stripeRef.current
+  var cardElement = cardElementRef.current
+
+  stripe.createPaymentMethod({
+    type: "card",
+    card: cardElement,
+    billing_details: {
+      name: user ? user.name : "Customer",
+      email: user ? user.email : ""
+    }
+  }).then(function(result) {
+
+    if (result.error) {
+      setProcessingScreen(false)
+      setError(result.error.message)
+      setLoading(false)
       return
     }
 
-    if (!stripeRef.current || !cardElementRef.current) {
-      setError("Payment not ready. Please wait.")
-      return
-    }
-    if (!cardReady) {
-      setError("Card field not ready. Please wait.")
-      return
-    }
-    if (!cardComplete) {
-      setError("Please enter complete card details.")
-      return
-    }
+    console.log("Card last4:", result.paymentMethod.card.last4)
 
-    setError("")
-    setLoading(true)
-    setProcessingScreen(true)
+    var last4 = result.paymentMethod.card.last4
 
-    var stripe = stripeRef.current
-    var cardElement = cardElementRef.current
-
-    stripe.createPaymentMethod({
-      type: "card",
-      card: cardElement,
-      billing_details: {
-        name: user ? user.name : "Customer",
-        email: user ? user.email : ""
-      }
-    }).then(function(result) {
-      if (result.error) {
-        setProcessingScreen(false)
-        setError(result.error.message)
-        setLoading(false)
-        return
-      }
-
-       console.log("Card last4:", result.paymentMethod.card.last4)
-
-      // ✅ Decline check
-      var last4 = result.paymentMethod.card.last4
-     if (last4 === "0002") {
-  setTimeout(function() {
-    setProcessingScreen(false)
-    setError("❌ Your card was declined. Please try a different card.")
-    setLoading(false)
-  }, 2500)
-  return  // ✅ Never reaches confirmBooking
-}
-
-      // ✅ Success
+    if (last4 === "0002") {
       setTimeout(function() {
-        confirmBooking({
-          method: "card",
-          transactionId: result.paymentMethod.id,
-          status: "success",
-          paidAt: new Date().toISOString()
-        })
+        setProcessingScreen(false)
+        setError("❌ Your card was declined. Please try a different card.")
         setLoading(false)
       }, 2500)
+      return
+    }
 
-    }).catch(function(err) {
-      setProcessingScreen(false)
-      setError("Payment failed. Please try again.")
+    setTimeout(function() {
+      confirmBooking({
+        method: "card",
+        transactionId: result.paymentMethod.id,
+        status: "success",
+        paidAt: new Date().toISOString()
+      })
       setLoading(false)
-    })
-  }  // ✅ handlePay closes here
+    }, 2500)
 
-  // ✅ handleUpiOrWalletPay is a separate function — outside handlePay
+  }).catch(function(err) {
+    setProcessingScreen(false)
+    setError("Payment failed. Please try again.")
+    setLoading(false)
+  })
+
+}
+  
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
       setError("Enter a valid UPI ID like name@upi")
