@@ -113,7 +113,7 @@ export default function PaymentPage() {
     var stripe = stripeRef.current
     var cardElement = cardElementRef.current
 
-    stripe.createPaymentMethod({
+      stripe.createPaymentMethod({
   type: "card",
   card: cardElement,
   billing_details: {
