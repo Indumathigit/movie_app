@@ -29,13 +29,29 @@ export default function MyBookingsPage() {
     return ids
   }
 
-  // ✅ Check if movie date has passed
+  // ✅ Check full datetime including time - not just date
   function isPastBooking(booking) {
     if (!booking.showtime || !booking.showtime.date) return false
-    var today = new Date()
-    today.setHours(0, 0, 0, 0)
-    var showDate = new Date(booking.showtime.date + "T00:00:00")
-    return showDate < today
+    var now = new Date()
+    var showDate = booking.showtime.date
+    var showTime = booking.showtime.time // e.g. "02:00 PM"
+
+    // parse showtime
+    var timeParts = showTime.match(/(\d+):(\d+)\s(AM|PM)/)
+    if (!timeParts) return false
+
+    var showHour = parseInt(timeParts[1])
+    var showMinute = parseInt(timeParts[2])
+    var period = timeParts[3]
+
+    if (period === "PM" && showHour !== 12) showHour += 12
+    if (period === "AM" && showHour === 12) showHour = 0
+
+    var showDateTime = new Date(showDate + "T00:00:00")
+    showDateTime.setHours(showHour, showMinute, 0, 0)
+
+    // ✅ Past if show time has already passed
+    return showDateTime < now
   }
 
   function isCancelled(booking) {
@@ -78,7 +94,7 @@ export default function MyBookingsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h3 className="text-white font-bold text-lg truncate">{booking.movie.title}</h3>
-                        {/* ✅ Status badge */}
+                        {/* ✅ Cancelled checked first, then past, then confirmed */}
                         {cancelled ? (
                           <span className="bg-red-900/40 border border-red-700/50 text-red-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">Cancelled</span>
                         ) : past ? (
