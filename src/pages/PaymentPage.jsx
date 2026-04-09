@@ -77,8 +77,7 @@ export default function PaymentPage() {
   }, [paymentMethod])
 
   function handleBack() { navigate("seats") }
-
-  async function handleCardPay() {
+async function handleCardPay() {
   if (!stripeRef.current || !cardElementRef.current) {
     setError("Payment not ready. Please wait.")
     return
@@ -93,8 +92,6 @@ export default function PaymentPage() {
   setShowingStripeProcess(true)
 
   try {
-    // ✅ Use createPaymentMethod - validates card with Stripe directly
-    // No backend needed - Stripe validates card on their servers
     var result = await stripeRef.current.createPaymentMethod({
       type: "card",
       card: cardElementRef.current,
@@ -104,6 +101,9 @@ export default function PaymentPage() {
       }
     })
 
+    // ✅ Log exact result to console
+    console.log("Stripe result:", JSON.stringify(result))
+
     if (result.error) {
       setShowingStripeProcess(false)
       setError(result.error.message)
@@ -111,7 +111,6 @@ export default function PaymentPage() {
       return
     }
 
-    // ✅ Card is valid - confirm booking
     confirmBooking({
       method: "card",
       transactionId: result.paymentMethod.id,
@@ -121,8 +120,9 @@ export default function PaymentPage() {
     setLoading(false)
 
   } catch (err) {
+    console.log("Stripe error:", err)
     setShowingStripeProcess(false)
-    setError("Payment failed. Please try again.")
+    setError(err.message || "Payment failed.")
     setLoading(false)
   }
 }
