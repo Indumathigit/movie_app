@@ -79,73 +79,77 @@ export default function PaymentPage() {
   function handleBack() { navigate("seats") }
 
   async function handleCardPay() {
-    if (!stripeRef.current || !cardElementRef.current) {
-      setError("Payment not ready. Please wait.")
+  if (!stripeRef.current || !cardElementRef.current) {
+    setError("Payment not ready. Please wait.")
+    return
+  }
+  if (!cardComplete) {
+    setError("Please enter your complete card details.")
+    return
+  }
+
+  setLoading(true)
+  setError("")
+
+  try {
+    var intentRes = await fetch(BACKEND_URL + "/api/payments/create-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: grandTotal })
+    })
+    var intentData = await intentRes.json()
+
+    if (!intentData.success) {
+      setError("Payment initialization failed. Try again.")
+      setLoading(false)
       return
     }
-    // ✅ Block if card not fully entered
-    if (!cardComplete) {
-      setError("Please enter your complete card details.")
-      return
-    }
 
-    setLoading(true)
-    setError("")
+    // ✅ Show Stripe processing screen
+    setShowingStripeProcess(true)
 
-    try {
-      // Step 1: Create PaymentIntent on backend
-      var intentRes = await fetch(BACKEND_URL + "/api/payments/create-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: grandTotal })
-      })
-      var intentData = await intentRes.json()
-
-      if (!intentData.success) {
-        setError("Payment initialization failed. Try again.")
-        setLoading(false)
-        return
-      }
-
-      // ✅ Show Stripe processing screen so evaluator can see gateway
-      setShowingStripeProcess(true)
-
-      // Step 2: Confirm card payment with Stripe
-      var result = await stripeRef.current.confirmCardPayment(intentData.clientSecret, {
-        payment_method: {
-          card: cardElementRef.current,
-          billing_details: {
-            name: user ? user.name : "Customer",
-            email: user ? user.email : ""
-          }
+    // ✅ Add 30 second timeout
+    var paymentPromise = stripeRef.current.confirmCardPayment(intentData.clientSecret, {
+      payment_method: {
+        card: cardElementRef.current,
+        billing_details: {
+          name: user ? user.name : "Customer",
+          email: user ? user.email : ""
         }
-      })
-
-      if (result.error) {
-        // ✅ Real Stripe errors - declined cards show error
-        setShowingStripeProcess(false)
-        setError(result.error.message)
-        setLoading(false)
-        return
       }
+    })
 
-      if (result.paymentIntent.status === "succeeded") {
-        // ✅ Payment succeeded - confirm booking
-        confirmBooking({
-          method: "card",
-          transactionId: result.paymentIntent.id,
-          status: "success",
-          paidAt: new Date().toISOString()
-        })
-        setLoading(false)
-      }
+    var timeoutPromise = new Promise(function(_, reject) {
+      setTimeout(function() {
+        reject(new Error("Payment timed out. Please try again."))
+      }, 30000)
+    })
 
-    } catch (err) {
+    var result = await Promise.race([paymentPromise, timeoutPromise])
+
+    if (result.error) {
       setShowingStripeProcess(false)
-      setError("Payment failed. Please try again.")
+      setError(result.error.message)
+      setLoading(false)
+      return
+    }
+
+    if (result.paymentIntent && result.paymentIntent.status === "succeeded") {
+      confirmBooking({
+        method: "card",
+        transactionId: result.paymentIntent.id,
+        status: "success",
+        paidAt: new Date().toISOString()
+      })
       setLoading(false)
     }
+
+  } catch (err) {
+    setShowingStripeProcess(false)
+    setError(err.message || "Payment failed. Please try again.")
+    setLoading(false)
   }
+}
 
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
