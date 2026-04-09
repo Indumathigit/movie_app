@@ -33,21 +33,20 @@ export function AppProvider({ children }) {
   var [searchQuery, setSearchQuery] = useState("")
   var [selectedGenre, setSelectedGenre] = useState("All")
 
+  // ✅ On app load, fetch latest bookings from backend
   useEffect(function () {
     if (savedUser && savedUser.email) {
       getUserBookings(savedUser.email)
         .then(function (res) {
           if (res && res.success && res.data && res.data.length > 0) {
-            var normalized = res.data.map(function (b) {
+            var normalized = res.data.map(function(b) {
               return Object.assign({}, b, { id: b.bookingId || b._id })
             })
             setBookings(normalized)
             localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
           }
         })
-        .catch(function (err) {
-          console.log("Could not refresh bookings on load:", err)
-        })
+        .catch(function () {})
     }
   }, [])
 
@@ -77,15 +76,8 @@ export function AppProvider({ children }) {
         break
       }
     }
-
     if (alreadySelected) {
-      var newSeats = []
-      for (var i = 0; i < selectedSeats.length; i++) {
-        if (selectedSeats[i].id !== seat.id) {
-          newSeats.push(selectedSeats[i])
-        }
-      }
-      setSelectedSeats(newSeats)
+      setSelectedSeats(selectedSeats.filter(function(s) { return s.id !== seat.id }))
     } else {
       if (selectedSeats.length >= 8) {
         alert("You can select maximum 8 seats")
@@ -99,8 +91,7 @@ export function AppProvider({ children }) {
     if (!selectedShowtime) return 0
     var total = 0
     for (var i = 0; i < selectedSeats.length; i++) {
-      var seat = selectedSeats[i]
-      total = total + selectedShowtime.price[seat.type]
+      total = total + selectedShowtime.price[selectedSeats[i].type]
     }
     return total
   }
@@ -131,6 +122,7 @@ export function AppProvider({ children }) {
       status: "confirmed"
     }
 
+    // save to backend
     createBooking(newBooking)
       .then(function (res) {
         if (res && res.success) {
@@ -147,8 +139,10 @@ export function AppProvider({ children }) {
   }
 
   function login(userData) {
+    // ✅ Clear previous user bookings first
     setBookings([])
     localStorage.removeItem("popcornpass_bookings")
+
     setUser(userData)
     localStorage.setItem("popcornpass_user", JSON.stringify(userData))
     setShowAuthModal(false)
@@ -157,16 +151,14 @@ export function AppProvider({ children }) {
       getUserBookings(userData.email)
         .then(function (res) {
           if (res && res.success && res.data && res.data.length > 0) {
-            var normalized = res.data.map(function (b) {
+            var normalized = res.data.map(function(b) {
               return Object.assign({}, b, { id: b.bookingId || b._id })
             })
             setBookings(normalized)
             localStorage.setItem("popcornpass_bookings", JSON.stringify(normalized))
           }
         })
-        .catch(function (err) {
-          console.log("Could not fetch bookings after login:", err)
-        })
+        .catch(function () {})
     }
   }
 
@@ -178,7 +170,7 @@ export function AppProvider({ children }) {
     navigate("home")
   }
 
-  // cancel booking — keeps booking in list with "cancelled" status
+  // ✅ Cancel marks booking as cancelled instead of deleting it
   function cancelBooking(bookingId) {
     cancelBookingApi(bookingId)
       .then(function (res) {
@@ -187,48 +179,30 @@ export function AppProvider({ children }) {
         }
       })
 
-    var updatedBookings = []
-    for (var i = 0; i < bookings.length; i++) {
-      if (bookings[i].id === bookingId) {
-        var cancelled = Object.assign({}, bookings[i], { status: "cancelled" })
-        updatedBookings.push(cancelled)
-      } else {
-        updatedBookings.push(bookings[i])
+    // ✅ Mark as cancelled instead of removing
+    var updatedBookings = bookings.map(function(b) {
+      if ((b.id === bookingId) || (b.bookingId === bookingId) || (b._id === bookingId)) {
+        return Object.assign({}, b, { status: "cancelled" })
       }
-    }
+      return b
+    })
     setBookings(updatedBookings)
     localStorage.setItem("popcornpass_bookings", JSON.stringify(updatedBookings))
   }
 
   var value = {
-    currentPage,
-    navigate,
-    selectedMovie,
-    setSelectedMovie,
-    selectMovie,
-    selectedShowtime,
-    setSelectedShowtime,
-    selectShowtime,
-    selectedDate,
-    setSelectedDate,
-    selectedSeats,
-    setSelectedSeats,
-    toggleSeat,
-    user,
-    login,
-    logout,
-    showAuthModal,
-    setShowAuthModal,
-    bookings,
-    currentBooking,
-    proceedToPayment,
-    calculateTotal,
-    confirmBooking,
-    cancelBooking,
-    searchQuery,
-    setSearchQuery,
-    selectedGenre,
-    setSelectedGenre
+    currentPage, navigate,
+    selectedMovie, setSelectedMovie, selectMovie,
+    selectedShowtime, setSelectedShowtime, selectShowtime,
+    selectedDate, setSelectedDate,
+    selectedSeats, setSelectedSeats, toggleSeat,
+    user, login, logout,
+    showAuthModal, setShowAuthModal,
+    bookings, currentBooking,
+    proceedToPayment, calculateTotal,
+    confirmBooking, cancelBooking,
+    searchQuery, setSearchQuery,
+    selectedGenre, setSelectedGenre
   }
 
   return (

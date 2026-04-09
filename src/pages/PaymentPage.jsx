@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useApp } from "../context/AppContext"
 
 const STRIPE_KEY = "pk_test_51TI0ebFwCY90Xpbs2zvWCuSOQ483oi4lDLsDYUK8jN3dP7hoXDxdaD25HXKALVA7PiL04rJ2feVrAXrep4HbvRuA00HKtnwNRj"
+const BACKEND_URL = "https://movie-booking-backend-k3uc.onrender.com"
 
 export default function PaymentPage() {
   var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
@@ -20,7 +21,8 @@ export default function PaymentPage() {
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
 
-  useEffect(function () {
+  // Load Stripe.js
+  useEffect(function() {
     if (window.Stripe) {
       stripeRef.current = window.Stripe(STRIPE_KEY)
       setStripeReady(true)
@@ -28,14 +30,15 @@ export default function PaymentPage() {
     }
     var script = document.createElement("script")
     script.src = "https://js.stripe.com/v3/"
-    script.onload = function () {
+    script.onload = function() {
       stripeRef.current = window.Stripe(STRIPE_KEY)
       setStripeReady(true)
     }
     document.head.appendChild(script)
   }, [])
 
-  useEffect(function () {
+  // Mount Stripe Card Element
+  useEffect(function() {
     if (!stripeReady || paymentMethod !== "card") return
     if (cardElementRef.current) return
     if (!cardMountRef.current) return
@@ -56,21 +59,20 @@ export default function PaymentPage() {
     card.mount(cardMountRef.current)
     cardElementRef.current = card
 
-    card.on("change", function (e) {
+    card.on("change", function(e) {
       setError(e.error ? e.error.message : "")
     })
   }, [stripeReady, paymentMethod])
 
-  useEffect(function () {
+  // Unmount when switching away
+  useEffect(function() {
     if (paymentMethod !== "card" && cardElementRef.current) {
       cardElementRef.current.unmount()
       cardElementRef.current = null
     }
   }, [paymentMethod])
 
-  function handleBack() {
-    navigate("seats")
-  }
+  function handleBack() { navigate("seats") }
 
   async function handleCardPay() {
     if (!stripeRef.current || !cardElementRef.current) {
@@ -79,27 +81,51 @@ export default function PaymentPage() {
     }
     setLoading(true)
     setError("")
+
     try {
-      var result = await stripeRef.current.createPaymentMethod({
-        type: "card",
-        card: cardElementRef.current,
-        billing_details: {
-          name: user ? user.name : "Customer",
-          email: user ? user.email : ""
+      // ✅ Step 1: Create PaymentIntent on backend
+      var intentRes = await fetch(BACKEND_URL + "/api/payments/create-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: grandTotal })
+      })
+      var intentData = await intentRes.json()
+
+      if (!intentData.success) {
+        setError("Payment initialization failed. Try again.")
+        setLoading(false)
+        return
+      }
+
+      // ✅ Step 2: Confirm card payment with Stripe - this actually validates/declines cards
+      var result = await stripeRef.current.confirmCardPayment(intentData.clientSecret, {
+        payment_method: {
+          card: cardElementRef.current,
+          billing_details: {
+            name: user ? user.name : "Customer",
+            email: user ? user.email : ""
+          }
         }
       })
+
       if (result.error) {
+        // ✅ Real Stripe errors shown here - declined cards will show error
         setError(result.error.message)
         setLoading(false)
         return
       }
-      confirmBooking({
-        method: "card",
-        transactionId: result.paymentMethod.id,
-        status: "success",
-        paidAt: new Date().toISOString()
-      })
-      setLoading(false)
+
+      if (result.paymentIntent.status === "succeeded") {
+        // ✅ Payment actually succeeded
+        confirmBooking({
+          method: "card",
+          transactionId: result.paymentIntent.id,
+          status: "success",
+          paidAt: new Date().toISOString()
+        })
+        setLoading(false)
+      }
+
     } catch (err) {
       setError("Payment failed. Please try again.")
       setLoading(false)
@@ -113,7 +139,7 @@ export default function PaymentPage() {
     }
     setError("")
     setLoading(true)
-    setTimeout(function () {
+    setTimeout(function() {
       confirmBooking({
         method: paymentMethod,
         transactionId: "TXN" + Date.now(),
@@ -133,92 +159,48 @@ export default function PaymentPage() {
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm"
-        >
+        <button onClick={handleBack} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm">
           ← Back to Seat Selection
         </button>
-
         <h1 className="text-2xl font-bold text-white mb-8">Complete Payment</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
           <div className="lg:col-span-2 flex flex-col gap-5">
 
-            {/* payment method tabs */}
+            {/* Payment Method Tabs */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Payment Method</h2>
               <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setPaymentMethod("card")}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${
-                    paymentMethod === "card"
-                      ? "bg-indigo-600/10 border-indigo-600 text-indigo-400"
-                      : "bg-gray-800 border-gray-700 text-gray-400"
-                  }`}
-                >
-                  <span className="text-2xl">💳</span>
-                  <span className="text-xs font-medium text-center">Credit / Debit Card</span>
-                </button>
-                <button
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${
-                    paymentMethod === "upi"
-                      ? "bg-indigo-600/10 border-indigo-600 text-indigo-400"
-                      : "bg-gray-800 border-gray-700 text-gray-400"
-                  }`}
-                >
-                  <span className="text-2xl">📱</span>
-                  <span className="text-xs font-medium text-center">UPI</span>
-                </button>
-                <button
-                  onClick={() => setPaymentMethod("wallet")}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${
-                    paymentMethod === "wallet"
-                      ? "bg-indigo-600/10 border-indigo-600 text-indigo-400"
-                      : "bg-gray-800 border-gray-700 text-gray-400"
-                  }`}
-                >
-                  <span className="text-2xl">👛</span>
-                  <span className="text-xs font-medium text-center">Wallet</span>
-                </button>
+                {[["card","💳","Credit / Debit Card"],["upi","📱","UPI"],["wallet","👛","Wallet"]].map(function(m) {
+                  return (
+                    <button key={m[0]} onClick={() => setPaymentMethod(m[0])}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${paymentMethod === m[0] ? "bg-red-600/10 border-red-600 text-red-400" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                      <span className="text-2xl">{m[1]}</span>
+                      <span className="text-xs font-medium text-center">{m[2]}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* stripe card section */}
+            {/* Stripe Card */}
             {paymentMethod === "card" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-
-                {/* stripe header */}
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-white font-semibold">Card Details</h2>
-                  <div className="flex items-center gap-2 bg-indigo-950 border border-indigo-700 px-3 py-1.5 rounded-xl">
-                    <span className="text-indigo-400 font-black text-sm">stripe</span>
-                    <span className="text-indigo-300 text-xs">Secured Payment</span>
+                  <div className="flex items-center gap-2 bg-indigo-900/40 border border-indigo-700/50 px-3 py-1.5 rounded-lg">
+                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                      <rect width="32" height="32" rx="6" fill="#635BFF"/>
+                      <path d="M13.5 20.5c0 .8-.7 1.5-1.5 1.5s-1.5-.7-1.5-1.5.7-1.5 1.5-1.5 1.5.7 1.5 1.5zm7 0c0 .8-.7 1.5-1.5 1.5s-1.5-.7-1.5-1.5.7-1.5 1.5-1.5 1.5.7 1.5 1.5z" fill="white"/>
+                    </svg>
+                    <span className="text-indigo-300 text-xs font-bold">Powered by Stripe</span>
                   </div>
                 </div>
 
-                {/* stripe features */}
-                <div className="grid grid-cols-3 gap-2 mb-5">
-                  <div className="bg-indigo-950/50 border border-indigo-900 rounded-xl p-2 text-center">
-                    <p className="text-indigo-400 text-lg mb-0.5">🔒</p>
-                    <p className="text-indigo-300 text-xs font-medium">SSL Encrypted</p>
-                  </div>
-                  <div className="bg-indigo-950/50 border border-indigo-900 rounded-xl p-2 text-center">
-                    <p className="text-indigo-400 text-lg mb-0.5">✅</p>
-                    <p className="text-indigo-300 text-xs font-medium">PCI Compliant</p>
-                  </div>
-                  <div className="bg-indigo-950/50 border border-indigo-900 rounded-xl p-2 text-center">
-                    <p className="text-indigo-400 text-lg mb-0.5">⚡</p>
-                    <p className="text-indigo-300 text-xs font-medium">Instant Payment</p>
-                  </div>
-                </div>
-
-                {/* test card info */}
-                <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3 mb-5">
-                  <p className="text-yellow-400 text-xs font-medium mb-1">🧪 Stripe Test Mode — Use test card:</p>
-                  <p className="text-yellow-300 text-xs font-mono">4242 4242 4242 4242 • Any future date • Any CVV</p>
+                <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-3 mb-4">
+                  <p className="text-green-400 text-xs font-medium mb-1">✅ Test Mode — Use Stripe test card:</p>
+                  <p className="text-green-300 text-xs font-mono">4242 4242 4242 4242 • Any future date • Any CVV</p>
+                  <p className="text-red-400 text-xs mt-1">❌ Decline test: 4000 0000 0000 0002</p>
                 </div>
 
                 {!stripeReady ? (
@@ -227,129 +209,83 @@ export default function PaymentPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
-                    <p className="text-gray-400 text-sm">Loading Stripe secure payment...</p>
+                    <p className="text-gray-400 text-sm">Loading Stripe...</p>
                   </div>
                 ) : (
                   <div>
                     <label className="text-gray-400 text-sm mb-2 block">Card Information</label>
-                    <div
-                      ref={cardMountRef}
-                      className="w-full bg-gray-800 border border-indigo-700/50 rounded-xl px-4 py-4"
-                    />
-                    <p className="text-indigo-500 text-xs mt-2">
-                      🔒 Card details are securely encrypted by Stripe. We never store your card data.
-                    </p>
+                    <div ref={cardMountRef} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-4" />
+                    <p className="text-gray-500 text-xs mt-2">🔒 256-bit SSL encrypted by Stripe</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* upi section */}
+            {/* UPI */}
             {paymentMethod === "upi" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">UPI Payment</h2>
                 <div className="grid grid-cols-4 gap-3 mb-5">
-                  <div className="bg-blue-900 rounded-xl p-3 text-center border border-gray-700">
-                    <p className="text-white text-xs font-medium">GPay</p>
-                  </div>
-                  <div className="bg-purple-900 rounded-xl p-3 text-center border border-gray-700">
-                    <p className="text-white text-xs font-medium">PhonePe</p>
-                  </div>
-                  <div className="bg-blue-800 rounded-xl p-3 text-center border border-gray-700">
-                    <p className="text-white text-xs font-medium">Paytm</p>
-                  </div>
-                  <div className="bg-orange-900 rounded-xl p-3 text-center border border-gray-700">
-                    <p className="text-white text-xs font-medium">BHIM</p>
-                  </div>
+                  {[["GPay","bg-blue-900"],["PhonePe","bg-purple-900"],["Paytm","bg-blue-800"],["BHIM","bg-orange-900"]].map(function(a) {
+                    return (
+                      <div key={a[0]} className={`${a[1]} rounded-xl p-3 text-center border border-gray-700`}>
+                        <p className="text-white text-xs font-medium">{a[0]}</p>
+                      </div>
+                    )
+                  })}
                 </div>
                 <div>
                   <label className="text-gray-400 text-sm mb-1 block">Enter UPI ID</label>
-                  <input
-                    type="text"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
+                  <input type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)}
                     placeholder="yourname@upi"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-indigo-500 text-sm"
-                  />
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none focus:border-red-500 text-sm" />
                 </div>
               </div>
             )}
 
-            {/* wallet section */}
+            {/* Wallet */}
             {paymentMethod === "wallet" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Select Wallet</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
-                    <p className="text-white text-sm font-medium">Paytm Wallet</p>
-                    <p className="text-green-400 text-xs mt-1">Balance: ₹1,250</p>
-                  </div>
-                  <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
-                    <p className="text-white text-sm font-medium">Amazon Pay</p>
-                    <p className="text-green-400 text-xs mt-1">Balance: ₹890</p>
-                  </div>
-                  <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
-                    <p className="text-white text-sm font-medium">Mobikwik</p>
-                    <p className="text-green-400 text-xs mt-1">Balance: ₹450</p>
-                  </div>
-                  <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
-                    <p className="text-white text-sm font-medium">Freecharge</p>
-                    <p className="text-green-400 text-xs mt-1">Balance: ₹120</p>
-                  </div>
+                  {[["Paytm Wallet","₹1,250"],["Amazon Pay","₹890"],["Mobikwik","₹450"],["Freecharge","₹120"]].map(function(w) {
+                    return (
+                      <div key={w[0]} className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
+                        <p className="text-white text-sm font-medium">{w[0]}</p>
+                        <p className="text-green-400 text-xs mt-1">Balance: {w[1]}</p>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
-            {/* error message */}
-            {error && (
-              <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">
-                {error}
-              </p>
-            )}
+            {error && <p className="text-red-400 text-sm text-center bg-red-900/20 py-3 rounded-xl">{error}</p>}
 
-            {/* pay button */}
             <button
               onClick={paymentMethod === "card" ? handleCardPay : handleUpiOrWalletPay}
               disabled={loading || (paymentMethod === "card" && !stripeReady)}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg"
-            >
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl text-lg">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Processing via Stripe...
+                  Processing Payment...
                 </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <span>Pay ₹{grandTotal}</span>
-                  <span className="text-indigo-300 text-sm font-normal">via Stripe</span>
-                </span>
-              )}
+              ) : "Pay ₹" + grandTotal + " via Stripe"}
             </button>
 
-            {/* stripe badge below button */}
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-gray-600 text-xs">Powered by</span>
-              <span className="text-indigo-400 font-bold text-sm">stripe</span>
-              <span className="text-gray-600 text-xs">•</span>
-              <span className="text-gray-600 text-xs">🔒 PCI DSS Level 1 Certified</span>
-            </div>
-
+            <p className="text-center text-gray-600 text-xs">🔒 Payments secured by Stripe — PCI DSS Level 1 Certified</p>
           </div>
 
-          {/* order summary - right side */}
+          {/* Order Summary */}
           <div className="flex flex-col gap-4">
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Booking Summary</h2>
-
               <div className="flex gap-3 mb-4">
-                <img
-                  src={selectedMovie.poster}
-                  alt={selectedMovie.title}
-                  className="w-14 h-20 object-cover rounded-lg flex-shrink-0"
-                />
+                <img src={selectedMovie.poster} alt={selectedMovie.title} className="w-14 h-20 object-cover rounded-lg flex-shrink-0" />
                 <div>
                   <h3 className="text-white font-bold text-sm">{selectedMovie.title}</h3>
                   <p className="text-gray-400 text-xs mt-1">{selectedShowtime.time}</p>
@@ -357,25 +293,20 @@ export default function PaymentPage() {
                   <p className="text-gray-500 text-xs">{selectedShowtime.screen}</p>
                 </div>
               </div>
-
               <div className="border-t border-gray-800 pt-4 mb-4">
                 <p className="text-gray-400 text-xs mb-2">Selected Seats</p>
                 <div className="flex flex-wrap gap-1">
-                  {selectedSeats.map(function (seat) {
+                  {selectedSeats.map(function(seat) {
                     return (
-                      <span
-                        key={seat.id}
-                        className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-1 rounded-lg"
-                      >
+                      <span key={seat.id} className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-1 rounded-lg">
                         {seat.id}
                       </span>
                     )
                   })}
                 </div>
               </div>
-
               <div className="border-t border-gray-800 pt-4 flex flex-col gap-2">
-                {selectedSeats.map(function (seat) {
+                {selectedSeats.map(function(seat) {
                   return (
                     <div key={seat.id} className="flex justify-between text-sm">
                       <span className="text-gray-400">Seat {seat.id} ({seat.type})</span>
@@ -394,22 +325,18 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* stripe trust badge */}
-            <div className="bg-indigo-950 border border-indigo-800 rounded-2xl p-4 text-center">
-              <p className="text-indigo-300 text-xs mb-2">Payment Secured by</p>
-              <p className="text-indigo-400 font-black text-2xl mb-2">stripe</p>
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-indigo-300 text-xs">🔒 SSL</span>
-                <span className="text-indigo-700">•</span>
-                <span className="text-indigo-300 text-xs">PCI DSS</span>
-                <span className="text-indigo-700">•</span>
-                <span className="text-indigo-300 text-xs">3D Secure</span>
+            {/* Stripe Badge */}
+            <div className="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 text-center">
+              <p className="text-gray-400 text-xs mb-2">Payment Gateway</p>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <div className="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">S</span>
+                </div>
+                <p className="text-indigo-400 font-bold text-xl">Stripe</p>
               </div>
-              <p className="text-indigo-500 text-xs">
-                Your card data never touches our servers
-              </p>
+              <p className="text-gray-500 text-xs">PCI DSS Level 1 Certified</p>
+              <p className="text-gray-600 text-xs mt-1">256-bit SSL Encryption</p>
             </div>
-
           </div>
         </div>
       </div>

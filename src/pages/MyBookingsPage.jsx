@@ -29,15 +29,15 @@ export default function MyBookingsPage() {
     return ids
   }
 
-  // check if show date has passed
+  // ✅ Check if movie date has passed
   function isPastBooking(booking) {
-    var showDate = new Date(booking.showtime.date + "T00:00:00")
+    if (!booking.showtime || !booking.showtime.date) return false
     var today = new Date()
     today.setHours(0, 0, 0, 0)
+    var showDate = new Date(booking.showtime.date + "T00:00:00")
     return showDate < today
   }
 
-  // check if booking is cancelled
   function isCancelled(booking) {
     return booking.status === "cancelled"
   }
@@ -54,14 +54,9 @@ export default function MyBookingsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">My Bookings</h1>
-            <p className="text-gray-400 text-sm">
-              {bookings.length} booking{bookings.length !== 1 ? "s" : ""} found
-            </p>
+            <p className="text-gray-400 text-sm">{bookings.length} booking{bookings.length !== 1 ? "s" : ""} found</p>
           </div>
-          <button
-            onClick={() => navigate("movies")}
-            className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl"
-          >
+          <button onClick={() => navigate("movies")} className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl">
             + Book More
           </button>
         </div>
@@ -72,44 +67,27 @@ export default function MyBookingsPage() {
               var seats = getSeats(booking)
               var past = isPastBooking(booking)
               var cancelled = isCancelled(booking)
+              var bookingKey = booking.bookingId || booking.id || booking._id
 
               return (
-                <div
-                  key={booking.id}
-                  className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
-                >
+                <div key={bookingKey} className={`bg-gray-900 border rounded-2xl overflow-hidden ${cancelled ? "border-red-900/50 opacity-75" : past ? "border-gray-700" : "border-gray-800"}`}>
+
                   <div className="flex gap-4 p-5">
-                    <img
-                      src={booking.movie.poster}
-                      alt={booking.movie.title}
-                      className="w-20 h-28 object-cover rounded-xl flex-shrink-0"
-                    />
+                    <img src={booking.movie.poster} alt={booking.movie.title}
+                      className={`w-20 h-28 object-cover rounded-xl flex-shrink-0 ${cancelled ? "grayscale" : ""}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="text-white font-bold text-lg truncate">
-                          {booking.movie.title}
-                        </h3>
-
-                        {/* status badge */}
+                        <h3 className="text-white font-bold text-lg truncate">{booking.movie.title}</h3>
+                        {/* ✅ Status badge */}
                         {cancelled ? (
-                          <span className="bg-red-900/40 border border-red-700/50 text-red-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
-                            Cancelled
-                          </span>
+                          <span className="bg-red-900/40 border border-red-700/50 text-red-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">Cancelled</span>
                         ) : past ? (
-                          <span className="bg-gray-800 border border-gray-700 text-gray-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
-                            Completed
-                          </span>
+                          <span className="bg-gray-800 border border-gray-700 text-gray-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">Completed</span>
                         ) : (
-                          <span className="bg-green-900/40 border border-green-700/50 text-green-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">
-                            Confirmed
-                          </span>
+                          <span className="bg-green-900/40 border border-green-700/50 text-green-400 text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0">Confirmed</span>
                         )}
                       </div>
-
-                      <p className="text-gray-400 text-sm mb-3">
-                        {booking.movie.genre.join(", ")} • {booking.showtime.format}
-                      </p>
-
+                      <p className="text-gray-400 text-sm mb-3">{booking.movie.genre.join(", ")} • {booking.showtime.format}</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div>
                           <p className="text-gray-500 text-xs">Movie Date</p>
@@ -135,80 +113,55 @@ export default function MyBookingsPage() {
                     </div>
                   </div>
 
-                  {/* seats and actions */}
                   <div className="border-t border-gray-800 px-5 py-4 flex flex-wrap items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-gray-500 text-xs">Seats:</span>
                       {seats.map(function (seatId) {
                         return (
-                          <span
-                            key={seatId}
-                            className={`text-xs px-2 py-1 rounded-lg border ${
-                              cancelled
-                                ? "bg-gray-800 border-gray-700 text-gray-500 line-through"
-                                : "bg-red-600/20 border-red-600/40 text-red-400"
-                            }`}
-                          >
+                          <span key={seatId} className="bg-red-600/20 border border-red-600/40 text-red-400 text-xs px-2 py-1 rounded-lg">
                             {seatId}
                           </span>
                         )
                       })}
                     </div>
-
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-600 text-xs font-mono">{booking.id}</span>
-
-                      {!cancelled && (
-                        <button
-                          onClick={() => window.print()}
-                          className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg"
-                        >
-                          🖨️ Print
-                        </button>
-                      )}
-
-                      {/* only show cancel if not cancelled and not past */}
+                      <span className="text-gray-600 text-xs font-mono">{bookingKey}</span>
+                      <button onClick={() => window.print()}
+                        className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg">
+                        🖨️ Print
+                      </button>
+                      {/* ✅ Only show cancel for future confirmed bookings */}
                       {!cancelled && !past && (
-                        <button
-                          onClick={() => setCancelConfirmId(booking.id)}
-                          className="text-xs bg-red-900/30 hover:bg-red-900/50 border border-red-800/50 text-red-400 px-3 py-1.5 rounded-lg"
-                        >
+                        <button onClick={() => setCancelConfirmId(bookingKey)}
+                          className="text-xs bg-red-900/30 hover:bg-red-900/50 border border-red-800/50 text-red-400 px-3 py-1.5 rounded-lg">
                           Cancel
                         </button>
                       )}
-
-                      {/* past booking label */}
                       {past && !cancelled && (
-                        <span className="text-xs text-gray-600 px-3 py-1.5">
-                          Cannot cancel past booking
-                        </span>
+                        <span className="text-xs text-gray-500 px-3 py-1.5">Past booking</span>
+                      )}
+                      {cancelled && (
+                        <span className="text-xs text-red-500 px-3 py-1.5">Booking cancelled</span>
                       )}
                     </div>
                   </div>
 
-                  {/* cancel confirmation bar */}
-                  {cancelConfirmId === booking.id && (
+                  {/* cancel confirmation */}
+                  {cancelConfirmId === bookingKey && (
                     <div className="border-t border-red-800/40 bg-red-900/10 px-5 py-4 flex items-center justify-between gap-4">
-                      <p className="text-red-300 text-sm">
-                        Are you sure you want to cancel this booking?
-                      </p>
+                      <p className="text-red-300 text-sm">Are you sure you want to cancel this booking?</p>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setCancelConfirmId(null)}
-                          className="text-xs bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-lg"
-                        >
+                        <button onClick={() => setCancelConfirmId(null)}
+                          className="text-xs bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-lg">
                           No, Keep it
                         </button>
-                        <button
-                          onClick={() => handleCancel(booking.id)}
-                          className="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium"
-                        >
+                        <button onClick={() => handleCancel(bookingKey)}
+                          className="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium">
                           Yes, Cancel
                         </button>
                       </div>
                     </div>
                   )}
-
                 </div>
               )
             })}
@@ -218,15 +171,11 @@ export default function MyBookingsPage() {
             <div className="text-6xl mb-4">🎟️</div>
             <h3 className="text-white text-xl font-bold mb-2">No bookings yet</h3>
             <p className="text-gray-400 text-sm mb-6">You have not booked any tickets yet</p>
-            <button
-              onClick={() => navigate("movies")}
-              className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-medium"
-            >
+            <button onClick={() => navigate("movies")} className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-medium">
               Browse Movies
             </button>
           </div>
         )}
-
       </div>
     </div>
   )
