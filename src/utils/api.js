@@ -29,8 +29,8 @@ function getUserBookings(email) {
 }
 
 function cancelBooking(bookingId) {
-  return fetch(BASE_URL + "/api/bookings/" + bookingId, {
-    method: "DELETE",
+  return fetch(BASE_URL + "/api/bookings/cancel/" + bookingId, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
     .then(function (res) { return res.json() })
@@ -47,7 +47,7 @@ function registerUser(name, email, password) {
   return fetch(BASE_URL + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password })
+    body: JSON.stringify({ name: name, email: email, password: password })
   })
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error registering:", err) })
@@ -57,7 +57,7 @@ function loginUser(email, password) {
   return fetch(BASE_URL + "/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email: email, password: password })
   })
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error logging in:", err) })
@@ -65,9 +65,20 @@ function loginUser(email, password) {
 
 function getBookingsByShowtime(date, time, screen) {
   return fetch(BASE_URL + "/api/bookings/showtime?date=" + date + "&time=" + encodeURIComponent(time) + "&screen=" + encodeURIComponent(screen))
-    .then(function(res) { return res.json() })
-    .catch(function(err) { console.log("Error fetching showtime bookings:", err) })
+    .then(function (res) { return res.json() })
+    .catch(function (err) { console.log("Error fetching showtime bookings:", err) })
 }
+
+function createPaymentIntent(amount) {
+  return fetch(BASE_URL + "/api/payment/create-intent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount: amount })
+  })
+    .then(function (res) { return res.json() })
+    .catch(function (err) { console.log("Error creating payment intent:", err) })
+}
+
 export {
   getAllMovies,
   getMovieById,
@@ -76,6 +87,7 @@ export {
   cancelBooking,
   getAllTheaters,
   registerUser,
+  loginUser,
   getBookingsByShowtime,
-  loginUser
+  createPaymentIntent
 }
