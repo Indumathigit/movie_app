@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useApp } from "../context/AppContext"
 
 const STRIPE_KEY = "pk_test_51TI0ebFwCY90Xpbs2zvWCuSOQ483oi4lDLsDYUK8jN3dP7hoXDxdaD25HXKALVA7PiL04rJ2feVrAXrep4HbvRuA00HKtnwNRj"
+const API_BASE = "https://movie-booking-backend-yq1d.onrender.com"
 
 export default function PaymentPage() {
   var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
@@ -23,7 +24,7 @@ export default function PaymentPage() {
   var convenience = Math.round(total * 0.02)
   var grandTotal = total + convenience
 
-  useEffect(function() {
+  useEffect(function () {
     if (stripeInitialized.current) return
     stripeInitialized.current = true
 
@@ -51,8 +52,8 @@ export default function PaymentPage() {
       card.mount(cardMountRef.current)
       cardElementRef.current = card
 
-      card.on("ready", function() { setCardReady(true) })
-      card.on("change", function(e) {
+      card.on("ready", function () { setCardReady(true) })
+      card.on("change", function (e) {
         setError(e.error ? e.error.message : "")
         setCardComplete(e.complete)
       })
@@ -64,16 +65,16 @@ export default function PaymentPage() {
     } else {
       var script = document.createElement("script")
       script.src = "https://js.stripe.com/v3/"
-      script.onload = function() {
+      script.onload = function () {
         stripeRef.current = window.Stripe(STRIPE_KEY)
         initStripeElement()
       }
       document.head.appendChild(script)
     }
 
-    return function() {
+    return function () {
       if (cardElementRef.current) {
-        try { cardElementRef.current.unmount() } catch(e) {}
+        try { cardElementRef.current.unmount() } catch (e) { }
         cardElementRef.current = null
       }
     }
@@ -81,79 +82,86 @@ export default function PaymentPage() {
 
   function handleBack() { navigate("seats") }
 
+  // ✅ FIXED: Uses real PaymentIntent from backend + confirmCardPayment
+  // Declined cards are now rejected by Stripe itself, not by a fake last4 check
   function handlePay() {
-  if (paymentMethod !== "card") {
-    handleUpiOrWalletPay()
-    return
-  }
-
-  if (!stripeRef.current || !cardElementRef.current) {
-    setError("Payment not ready. Please wait.")
-    return
-  }
-  if (!cardReady) {
-    setError("Card field not ready. Please wait.")
-    return
-  }
-  if (!cardComplete) {
-    setError("Please enter complete card details.")
-    return
-  }
-
-  setError("")
-  setLoading(true)
-  setProcessingScreen(true)
-
-  var stripe = stripeRef.current
-  var cardElement = cardElementRef.current
-
-  stripe.createPaymentMethod({
-    type: "card",
-    card: cardElement,
-    billing_details: {
-      name: user ? user.name : "Customer",
-      email: user ? user.email : ""
-    }
-  }).then(function(result) {
-
-    if (result.error) {
-      setProcessingScreen(false)
-      setError(result.error.message)
-      setLoading(false)
+    if (paymentMethod !== "card") {
+      handleUpiOrWalletPay()
       return
     }
 
-    console.log("Card last4:", result.paymentMethod.card.last4)
-
-    var last4 = result.paymentMethod.card.last4
-
-    if (last4 === "0002") {
-      setTimeout(function() {
-        setProcessingScreen(false)
-        setError("❌ Your card was declined. Please try a different card.")
-        setLoading(false)
-      }, 2500)
+    if (!stripeRef.current || !cardElementRef.current) {
+      setError("Payment not ready. Please wait.")
+      return
+    }
+    if (!cardReady) {
+      setError("Card field not ready. Please wait.")
+      return
+    }
+    if (!cardComplete) {
+      setError("Please enter complete card details.")
       return
     }
 
-    setTimeout(function() {
-      confirmBooking({
-        method: "card",
-        transactionId: result.paymentMethod.id,
-        status: "success",
-        paidAt: new Date().toISOString()
+    setError("")
+    setLoading(true)
+    setProcessingScreen(true)
+
+    // Step 1: Get PaymentIntent clientSecret from backend
+    fetch(API_BASE + "/api/payments/create-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: grandTotal })
+    })
+      .then(function (r) { return r.json() })
+      .then(function (data) {
+        if (!data.success || !data.clientSecret) {
+          throw new Error(data.message || "Could not initiate payment")
+        }
+
+        // Step 2: Confirm card payment with Stripe — this is what actually charges
+        // the card and rejects declined cards (e.g. 4000 0000 0000 0002)
+        return stripeRef.current.confirmCardPayment(data.clientSecret, {
+          payment_method: {
+            card: cardElementRef.current,
+            billing_details: {
+              name: user ? user.name : "Customer",
+              email: user ? user.email : ""
+            }
+          }
+        })
       })
-      setLoading(false)
-    }, 2500)
+      .then(function (result) {
+        setProcessingScreen(false)
 
-  }).catch(function(err) {
-    setProcessingScreen(false)
-    setError("Payment failed. Please try again.")
-    setLoading(false)
-  })
+        if (result.error) {
+          // ✅ Stripe returns the real decline reason here
+          setError("❌ " + result.error.message)
+          setLoading(false)
+          return
+        }
 
-}
-  
+        if (result.paymentIntent && result.paymentIntent.status === "succeeded") {
+          // ✅ Only confirm booking when Stripe confirms payment succeeded
+          confirmBooking({
+            method: "card",
+            transactionId: result.paymentIntent.id,
+            status: "success",
+            paidAt: new Date().toISOString()
+          })
+          setLoading(false)
+        } else {
+          setError("Payment was not completed. Please try again.")
+          setLoading(false)
+        }
+      })
+      .catch(function (err) {
+        setProcessingScreen(false)
+        setError("Payment failed: " + err.message)
+        setLoading(false)
+      })
+  }
+
   function handleUpiOrWalletPay() {
     if (paymentMethod === "upi" && !upiId.includes("@")) {
       setError("Enter a valid UPI ID like name@upi")
@@ -161,7 +169,7 @@ export default function PaymentPage() {
     }
     setError("")
     setLoading(true)
-    setTimeout(function() {
+    setTimeout(function () {
       confirmBooking({
         method: paymentMethod,
         transactionId: "TXN" + Date.now(),
@@ -181,7 +189,6 @@ export default function PaymentPage() {
     <div className="bg-gray-950 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {/* Stripe Processing Overlay */}
         {processingScreen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
             <div className="bg-gray-900 border border-indigo-800/50 rounded-2xl p-10 max-w-sm w-full mx-4 text-center">
@@ -193,9 +200,9 @@ export default function PaymentPage() {
               <p className="text-gray-400 text-sm mb-2">Securing your transaction...</p>
               <p className="text-indigo-300 font-medium mb-6">₹{grandTotal}</p>
               <div className="flex justify-center gap-2 mb-4">
-                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></div>
-                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"150ms"}}></div>
-                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay:"300ms"}}></div>
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
               </div>
               <p className="text-gray-500 text-xs">🔒 PCI DSS Level 1 Certified</p>
             </div>
@@ -210,11 +217,10 @@ export default function PaymentPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 flex flex-col gap-5">
 
-            {/* Payment Method Tabs */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Payment Method</h2>
               <div className="grid grid-cols-3 gap-3">
-                {[["card","💳","Credit / Debit Card"],["upi","📱","UPI"],["wallet","👛","Wallet"]].map(function(m) {
+                {[["card", "💳", "Credit / Debit Card"], ["upi", "📱", "UPI"], ["wallet", "👛", "Wallet"]].map(function (m) {
                   return (
                     <button key={m[0]} onClick={() => setPaymentMethod(m[0])}
                       className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${paymentMethod === m[0] ? "bg-indigo-600/10 border-indigo-600 text-indigo-400" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
@@ -226,7 +232,6 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* Card section - always rendered, just hidden when not selected */}
             <div className={paymentMethod === "card" ? "block" : "hidden"}>
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-4">
@@ -255,12 +260,11 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* UPI */}
             {paymentMethod === "upi" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">UPI Payment</h2>
                 <div className="grid grid-cols-4 gap-3 mb-5">
-                  {[["GPay","bg-blue-900"],["PhonePe","bg-purple-900"],["Paytm","bg-blue-800"],["BHIM","bg-orange-900"]].map(function(a) {
+                  {[["GPay", "bg-blue-900"], ["PhonePe", "bg-purple-900"], ["Paytm", "bg-blue-800"], ["BHIM", "bg-orange-900"]].map(function (a) {
                     return (
                       <div key={a[0]} className={`${a[1]} rounded-xl p-3 text-center border border-gray-700`}>
                         <p className="text-white text-xs font-medium">{a[0]}</p>
@@ -277,12 +281,11 @@ export default function PaymentPage() {
               </div>
             )}
 
-            {/* Wallet */}
             {paymentMethod === "wallet" && (
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
                 <h2 className="text-white font-semibold mb-5">Select Wallet</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {[["Paytm Wallet","₹1,250"],["Amazon Pay","₹890"],["Mobikwik","₹450"],["Freecharge","₹120"]].map(function(w) {
+                  {[["Paytm Wallet", "₹1,250"], ["Amazon Pay", "₹890"], ["Mobikwik", "₹450"], ["Freecharge", "₹120"]].map(function (w) {
                     return (
                       <div key={w[0]} className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:border-indigo-500">
                         <p className="text-white text-sm font-medium">{w[0]}</p>
@@ -303,8 +306,8 @@ export default function PaymentPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
                   Processing...
                 </span>
@@ -316,7 +319,6 @@ export default function PaymentPage() {
             <p className="text-center text-gray-600 text-xs">🔒 Payments secured by Stripe — PCI DSS Level 1 Certified</p>
           </div>
 
-          {/* Order Summary */}
           <div className="flex flex-col gap-4">
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <h2 className="text-white font-semibold mb-4">Booking Summary</h2>
@@ -332,7 +334,7 @@ export default function PaymentPage() {
               <div className="border-t border-gray-800 pt-4 mb-4">
                 <p className="text-gray-400 text-xs mb-2">Selected Seats</p>
                 <div className="flex flex-wrap gap-1">
-                  {selectedSeats.map(function(seat) {
+                  {selectedSeats.map(function (seat) {
                     return (
                       <span key={seat.id} className="bg-indigo-600/20 border border-indigo-600/40 text-indigo-400 text-xs px-2 py-1 rounded-lg">
                         {seat.id}
@@ -342,7 +344,7 @@ export default function PaymentPage() {
                 </div>
               </div>
               <div className="border-t border-gray-800 pt-4 flex flex-col gap-2">
-                {selectedSeats.map(function(seat) {
+                {selectedSeats.map(function (seat) {
                   return (
                     <div key={seat.id} className="flex justify-between text-sm">
                       <span className="text-gray-400">Seat {seat.id} ({seat.type})</span>
