@@ -3,7 +3,7 @@ import { useApp } from "../context/AppContext"
 import { movies, theaters } from "../data/mockData"
 import AnalyticsTab from "../components/AnalyticsTab"
 
-const API_BASE = "https://movie-booking-backend-yq1d.onrender.com"
+const API_BASE = "https://movie-booking-backend-k3uc.onrender.com"
 
 export default function AdminPage() {
   var { user, navigate } = useApp()

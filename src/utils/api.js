@@ -23,13 +23,15 @@ function createBooking(bookingData) {
 }
 
 function getUserBookings(email) {
-  return fetch(BASE_URL + "/api/bookings/user/" + email)
+  // ✅ fixed: was /api/bookings/user/:email
+  return fetch(BASE_URL + "/api/bookings?email=" + email)
     .then(function (res) { return res.json() })
     .catch(function (err) { console.log("Error fetching bookings:", err) })
 }
 
 function cancelBooking(bookingId) {
-  return fetch(BASE_URL + "/api/bookings/cancel/" + bookingId, {
+  // ✅ fixed: was /api/bookings/cancel/:id
+  return fetch(BASE_URL + "/api/bookings/" + bookingId + "/cancel", {
     method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
@@ -70,7 +72,8 @@ function getBookingsByShowtime(date, time, screen) {
 }
 
 function createPaymentIntent(amount) {
-  return fetch(BASE_URL + "/api/payment/create-intent", {
+  // ✅ fixed: was /api/payment/create-intent (missing s)
+  return fetch(BASE_URL + "/api/payments/create-intent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount: amount })

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useApp } from "../context/AppContext"
 
 const STRIPE_KEY = "pk_test_51TI0ebFwCY90Xpbs2zvWCuSOQ483oi4lDLsDYUK8jN3dP7hoXDxdaD25HXKALVA7PiL04rJ2feVrAXrep4HbvRuA00HKtnwNRj"
-const API_BASE = "https://movie-booking-backend-yq1d.onrender.com"
+const API_BASE = "https://movie-booking-backend-k3uc.onrender.com"
 
 export default function PaymentPage() {
   var { selectedMovie, selectedShowtime, selectedSeats, calculateTotal, confirmBooking, navigate, user } = useApp()
