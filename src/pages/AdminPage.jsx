@@ -3,7 +3,7 @@ import { useApp } from "../context/AppContext"
 import { movies, theaters } from "../data/mockData"
 import AnalyticsTab from "../components/AnalyticsTab"
 
-const API_BASE = "https://movie-booking-backend-k3uc.onrender.com"
+const API_BASE = "https://movie-booking-backend-yq1d.onrender.com"
 
 export default function AdminPage() {
   var { user, navigate } = useApp()
@@ -74,6 +74,12 @@ export default function AdminPage() {
 
     if (!movieId || !theaterId || !date || !time || !format || !screen) {
       setFormMsg("Please fill all required fields")
+      return
+    }
+
+    var today = new Date().toISOString().split("T")[0]
+    if (date < today) {
+      setFormMsg("❌ Cannot add showtime for a past date")
       return
     }
 
@@ -303,6 +309,7 @@ export default function AdminPage() {
                   <div>
                     <label className="text-gray-400 text-sm mb-1 block">Date *</label>
                     <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
                       className="w-full bg-gray-800 border border-gray-700 text-gray-300 text-sm px-4 py-3 rounded-xl outline-none focus:border-red-500" />
                   </div>
                   <div>
